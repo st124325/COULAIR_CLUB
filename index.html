@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ALPEX Pro Ride — Премиальные горнолыжные брюки</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-main: #0B0E14;
+      --bg-card: #141923;
+      --accent-beige: #D8C3A5;
+      --accent-beige-dark: #b89f7f;
+      --accent-white: #F8FAFC;
+      --text-muted: #8E9BAE;
+      --text-main: #F3F4F6;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --glow: 0 0 35px rgba(216, 195, 165, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    .ambient-glow-1 {
+      position: fixed;
+      top: -150px;
+      right: -100px;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(216,195,165,0.12) 0%, rgba(0,0,0,0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .ambient-glow-2 {
+      position: fixed;
+      bottom: -150px;
+      left: -100px;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(11, 14, 20, 0.85);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 18px 5%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 1.45rem;
+      letter-spacing: 2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo-badge {
+      background: var(--accent-beige);
+      color: #0b0e14;
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
+    nav {
+      display: flex;
+      gap: 28px;
+    }
+
+    nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.95rem;
+      transition: color 0.2s;
+    }
+
+    nav a:hover {
+      color: var(--accent-beige);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .cart-btn {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 18px;
+      border-radius: 99px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .cart-btn:hover {
+      border-color: var(--accent-beige);
+      box-shadow: var(--glow);
+    }
+
+    .hero {
+      position: relative;
+      padding: 50px 5% 80px;
+      max-width: 1350px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 50px;
+      align-items: center;
+      z-index: 1;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(216, 195, 165, 0.12);
+      border: 1px solid rgba(216, 195, 165, 0.35);
+      color: var(--accent-beige);
+      padding: 6px 14px;
+      border-radius: 99px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .hero-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 3.2rem;
+      line-height: 1.15;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+
+    .hero-title span.beige-text {
+      color: var(--accent-beige);
+      transition: color 0.3s;
+    }
+
+    .hero-title span.white-text {
+      color: #ffffff;
+      text-shadow: 0 0 25px rgba(255,255,255,0.4);
+      transition: color 0.3s;
+    }
+
+    .hero-desc {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      margin-bottom: 35px;
+      max-width: 520px;
+    }
+
+    .hero-features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 30px;
+    }
+
+    .feature-item {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .feature-item .val {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text-main);
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .feature-item .label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .product-showcase {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 28px;
+      padding: 34px;
+      position: relative;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+    }
+
+    .visual-container {
+      position: relative;
+      width: 100%;
+      height: 380px;
+      background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.3) 80%);
+      border-radius: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      margin-bottom: 24px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .pants-svg-wrapper {
+      position: relative;
+      width: 260px;
+      height: 350px;
+      transition: transform 0.4s ease;
+    }
+
+    .pants-svg-wrapper:hover {
+      transform: scale(1.04);
+    }
+
+    .color-tag {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(8px);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .selector-block {
+      margin-bottom: 20px;
+    }
+
+    .selector-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.88rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--text-muted);
+    }
+
+    .selector-label span.highlight {
+      color: var(--text-main);
+    }
+
+    .color-pills {
+      display: flex;
+      gap: 12px;
+    }
+
+    .color-pill-btn {
+      flex: 1;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 2px solid var(--border-color);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-main);
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.25s ease;
+    }
+
+    .color-pill-btn:hover {
+      background: rgba(255,255,255,0.06);
+    }
+
+    .color-pill-btn.active {
+      border-color: var(--accent-beige);
+      background: rgba(216, 195, 165, 0.12);
+      box-shadow: 0 0 20px rgba(216,195,165,0.25);
+    }
+
+    .dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.3);
+      flex-shrink: 0;
+    }
+
+    .dot-beige-black {
+      background: linear-gradient(135deg, #d4be9f 50%, #16181d 50%);
+    }
+
+    .dot-white {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+
+    .size-pills {
+      display: flex;
+      gap: 10px;
+    }
+
+    .size-btn {
+      flex: 1;
+      padding: 10px 0;
+      text-align: center;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .size-btn:hover {
+      background: rgba(255,255,255,0.08);
+    }
+
+    .size-btn.active {
+      background: var(--text-main);
+      color: #0b0e14;
+      border-color: var(--text-main);
+      font-weight: 700;
+    }
+
+    .price-action-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .price-wrapper .old-price {
+      font-size: 0.9rem;
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+
+    .price-wrapper .current-price {
+      font-size: 1.9rem;
+      font-weight: 800;
+      font-family: 'Space Grotesk', sans-serif;
+      color: #fff;
+    }
+
+    .buy-btn {
+      background: linear-gradient(135deg, #d8c3a5 0%, #c4ab8a 100%);
+      color: #0d1117;
+      border: none;
+      padding: 15px 32px;
+      border-radius: 14px;
+      font-size: 1.02rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .buy-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(216, 195, 165, 0.4);
+    }
+
+    .section-title-wrap {
+      text-align: center;
+      max-width: 650px;
+      margin: 0 auto 45px;
+    }
+
+    .section-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2.3rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .section-desc {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+    }
+
+    .tech-section {
+      padding: 80px 5%;
+      max-width: 1350px;
+      margin: 0 auto;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .specs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 22px;
+    }
+
+    .spec-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 28px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .spec-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(216, 195, 165, 0.3);
+    }
+
+    .spec-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: rgba(216, 195, 165, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      margin-bottom: 18px;
+      color: var(--accent-beige);
+    }
+
+    .spec-card h3 {
+      font-size: 1.2rem;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    .spec-card p {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+
+    .colorways-section {
+      padding: 70px 5%;
+      max-width: 1350px;
+      margin: 0 auto;
+    }
+
+    .colorways-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+    }
+
+    .colorway-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 30px;
+    }
+
+    .colorway-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .colorway-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .colorway-badge {
+      font-size: 0.8rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.08);
+      color: var(--text-muted);
+    }
+
+    .colorway-desc {
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      font-size: 0.95rem;
+    }
+
+    .colorway-preview {
+      height: 240px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border-color);
+    }
+
+    .colorway-select-btn {
+      width: 100%;
+      margin-top: 18px;
+      padding: 13px;
+      border-radius: 12px;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .colorway-select-btn:hover {
+      background: var(--accent-beige);
+      border-color: var(--accent-beige);
+      color: #111;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: #141923;
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      width: 100%;
+      max-width: 500px;
+      padding: 32px;
+      position: relative;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.7);
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      background: rgba(255,255,255,0.05);
+      border: none;
+      color: var(--text-muted);
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 15px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      color: #fff;
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--accent-beige);
+      box-shadow: 0 0 0 3px rgba(216, 195, 165, 0.15);
+    }
+
+    .order-summary-box {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 18px;
+      font-size: 0.9rem;
+    }
+
+    .submit-order-btn {
+      width: 100%;
+      padding: 15px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #d8c3a5 0%, #c4ab8a 100%);
+      color: #0c1017;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .submit-order-btn:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+
+    .success-screen {
+      text-align: center;
+      padding: 15px 10px;
+      display: none;
+    }
+
+    .success-icon {
+      width: 60px;
+      height: 60px;
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      margin-bottom: 16px;
+    }
+
+    footer {
+      border-top: 1px solid var(--border-color);
+      padding: 35px 5%;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+    }
+
+    @media (max-width: 968px) {
+      .hero {
+        grid-template-columns: 1fr;
+        padding-top: 25px;
+      }
+      .colorways-grid {
+        grid-template-columns: 1fr;
+      }
+      .hero-title {
+        font-size: 2.4rem;
+      }
+      nav {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="ambient-glow-1"></div>
+  <div class="ambient-glow-2"></div>
+
+  <header>
+    <div class="logo">
+      ALPEX <span class="logo-badge">PRO RIDE</span>
+    </div>
+    <nav>
+      <a href="#models">Модели & Цвета</a>
+      <a href="#tech">Мембрана & Технологии</a>
+      <a href="#delivery">Оплата & Доставка</a>
+    </nav>
+    <div class="header-actions">
+      <button class="cart-btn" onclick="openOrderModal()">
+        <span>🛒 Быстрый заказ</span>
+      </button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-info">
+      <div class="hero-badge">Коллекция Winter 2026/2027</div>
+      <h1 class="hero-title">
+        Горнолыжные штаны <br/>
+        <span class="beige-text" id="heroColorName">Бежево-Черный</span>
+      </h1>
+      <p class="hero-desc">
+        Анатомический крой для свободного катания, мембранная ткань 20 000 / 20 000 мм, вставки Cordura® и утеплитель PrimaLoft®. Идеальны для любых погодных условий до -30°C.
+      </p>
+
+      <div class="hero-features">
+        <div class="feature-item">
+          <div class="val">20K / 20K</div>
+          <div class="label">Водостойкость</div>
+        </div>
+        <div class="feature-item">
+          <div class="val">PrimaLoft®</div>
+          <div class="label">Утеплитель</div>
+        </div>
+        <div class="feature-item">
+          <div class="val">-30°C</div>
+          <div class="label">Тепловой предел</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="product-showcase">
+      <div class="visual-container">
+        <div class="color-tag" id="activeColorTag">Бежево-Черный (Dune Shadow)</div>
+        
+        <div class="pants-svg-wrapper" id="pantsSvgContainer">
+          <svg viewBox="0 0 300 420" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="gradBeige" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#E2D4BF" />
+                <stop offset="60%" stop-color="#CBB496" />
+                <stop offset="100%" stop-color="#A89375" />
+              </linearGradient>
+              <linearGradient id="gradBlack" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#242830" />
+                <stop offset="100%" stop-color="#111317" />
+              </linearGradient>
+              <linearGradient id="gradWhite" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#FFFFFF" />
+                <stop offset="70%" stop-color="#F1F5F9" />
+                <stop offset="100%" stop-color="#CBD5E1" />
+              </linearGradient>
+              <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+                <feDropShadow dx="0" dy="12" stdDeviation="15" flood-color="#000" flood-opacity="0.45"/>
+              </filter>
+            </defs>
+
+            <g id="skiPantsMesh" filter="url(#dropShadow)">
+              <!-- Пояс -->
+              <path id="waistBand" d="M 85 45 Q 150 40 215 45 L 218 70 Q 150 64 82 70 Z" fill="#1b1f26" />
+              <rect x="138" y="47" width="24" height="20" rx="3" fill="#A89375" />
+              <rect x="144" y="52" width="12" height="10" rx="1" fill="#1b1f26" />
+
+              <!-- Верхняя часть штанов -->
+              <path id="leftLegUpper" d="M 82 70 Q 75 140 70 230 L 142 230 Q 146 150 148 90 Z" fill="url(#gradBeige)" />
+              <path id="rightLegUpper" d="M 218 70 Q 225 140 230 230 L 158 230 Q 154 150 152 90 Z" fill="url(#gradBeige)" />
+              <path id="crotchGusset" d="M 144 140 L 156 140 L 154 210 L 146 210 Z" fill="#191d24" opacity="0.6" />
+
+              <!-- Нижняя часть штанин -->
+              <path id="leftLegLower" d="M 70 230 L 60 380 Q 95 388 135 382 L 142 230 Z" fill="url(#gradBlack)" />
+              <path id="rightLegLower" d="M 230 230 L 240 380 Q 205 388 165 382 L 158 230 Z" fill="url(#gradBlack)" />
+
+              <!-- Коленные вставки -->
+              <path id="leftKnee" d="M 68 215 L 143 215 L 141 245 L 69 245 Z" fill="#20252e" opacity="0.4" />
+              <path id="rightKnee" d="M 232 215 L 157 215 L 159 245 L 231 245 Z" fill="#20252e" opacity="0.4" />
+
+              <!-- Вентиляция с акцентом -->
+              <path d="M 134 110 L 131 170" stroke="#FF5722" stroke-width="3" stroke-linecap="round" />
+              <path d="M 166 110 L 169 170" stroke="#FF5722" stroke-width="3" stroke-linecap="round" />
+              <text x="110" y="105" fill="#FF5722" font-size="9" font-family="monospace">AIR VENT</text>
+
+              <!-- Защита Cordura снизу -->
+              <path id="leftScuff" d="M 120 340 L 135 382 L 105 384 Z" fill="#0b0e14" />
+              <path id="rightScuff" d="M 180 340 L 165 382 L 195 384 Z" fill="#0b0e14" />
+
+              <!-- Карманы молнии -->
+              <path d="M 88 100 L 115 130" stroke="#111" stroke-width="3.5" stroke-linecap="round" />
+              <path d="M 212 100 L 185 130" stroke="#111" stroke-width="3.5" stroke-linecap="round" />
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Выбор цвета -->
+      <div class="selector-block">
+        <div class="selector-label">
+          <span>ЦВЕТ</span>
+          <span class="highlight" id="colorTextLabel">Бежево-Черный</span>
+        </div>
+        <div class="color-pills">
+          <button class="color-pill-btn active" id="btnColorBeigeBlack" onclick="selectColor('beige-black')">
+            <span class="dot dot-beige-black"></span>
+            Бежево-Черный
+          </button>
+          <button class="color-pill-btn" id="btnColorWhite" onclick="selectColor('white')">
+            <span class="dot dot-white"></span>
+            Белый (Snow Pearl)
+          </button>
+        </div>
+      </div>
+
+      <!-- Выбор размера -->
+      <div class="selector-block">
+        <div class="selector-label">
+          <span>РАЗМЕР</span>
+          <a href="javascript:void(0)" onclick="alert('Таблица размеров:\nS: 46-48 (рост 170-176 см)\nM: 48-50 (рост 175-182 см)\nL: 50-52 (рост 180-188 см)\nXL: 52-54 (рост 185-195 см)')" style="color:var(--accent-beige); text-decoration:none; font-size:0.8rem;">Таблица размеров</a>
+        </div>
+        <div class="size-pills">
+          <button class="size-btn" onclick="selectSize(this, 'S')">S / 46</button>
+          <button class="size-btn active" onclick="selectSize(this, 'M')">M / 48</button>
+          <button class="size-btn" onclick="selectSize(this, 'L')">L / 50</button>
+          <button class="size-btn" onclick="selectSize(this, 'XL')">XL / 52</button>
+        </div>
+      </div>
+
+      <div class="price-action-row">
+        <div class="price-wrapper">
+          <div class="old-price">28 990 ₽</div>
+          <div class="current-price">21 490 ₽</div>
+        </div>
+        <button class="buy-btn" onclick="openOrderModal()">
+          <span>Купить сейчас</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Блок с расцветками -->
+  <section class="colorways-section" id="models">
+    <div class="section-title-wrap">
+      <h2 class="section-title">Две легендарные расцветки</h2>
+      <p class="section-desc">Выберите расцветку под ваш горнолыжный или сноубордический образ</p>
+    </div>
+
+    <div class="colorways-grid">
+      <!-- 1. Бежево-Черный -->
+      <div class="colorway-card">
+        <div class="colorway-header">
+          <div class="colorway-title">Dune / Shadow Black</div>
+          <div class="colorway-badge">Бежево-Черный</div>
+        </div>
+        <p class="colorway-desc">
+          Песочный матовый беж с черными усилениями Cordura® на коленях и манжетах. Практичный, стильный, сочетается с любой курткой.
+        </p>
+        <div class="colorway-preview">
+          <div style="text-align:center;">
+            <div style="display:flex; justify-content:center; gap:12px; margin-bottom:12px;">
+              <span style="width:44px; height:44px; border-radius:50%; background:#D8C3A5; display:inline-block; border:2px solid #fff;"></span>
+              <span style="width:44px; height:44px; border-radius:50%; background:#16181d; display:inline-block; border:2px solid #555;"></span>
+            </div>
+            <p style="font-size:0.9rem; color:var(--text-muted);">Матовый песок + Черный графит</p>
+          </div>
+        </div>
+        <button class="colorway-select-btn" onclick="selectColor('beige-black'); window.scrollTo({top: 0, behavior:'smooth'});">
+          Выбрать Бежево-Черный
+        </button>
+      </div>
+
+      <!-- 2. Белый -->
+      <div class="colorway-card">
+        <div class="colorway-header">
+          <div class="colorway-title">Arctic Snow Pearl</div>
+          <div class="colorway-badge">Белый</div>
+        </div>
+        <p class="colorway-desc">
+          Чистый белоснежный оттенок с грязе- и водоотталкивающей пропиткой Teflon EcoElite™. Эффектно выглядит на склонах и в солнечный день.
+        </p>
+        <div class="colorway-preview">
+          <div style="text-align:center;">
+            <div style="display:flex; justify-content:center; gap:12px; margin-bottom:12px;">
+              <span style="width:44px; height:44px; border-radius:50%; background:#ffffff; display:inline-block; border:2px solid #cbd5e1; box-shadow:0 0 12px rgba(255,255,255,0.4)"></span>
+              <span style="width:44px; height:44px; border-radius:50%; background:#475569; display:inline-block; border:2px solid #555;"></span>
+            </div>
+            <p style="font-size:0.9rem; color:var(--text-muted);">Белоснежный с акцентными молниями</p>
+          </div>
+        </div>
+        <button class="colorway-select-btn" onclick="selectColor('white'); window.scrollTo({top: 0, behavior:'smooth'});">
+          Выбрать Белый
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Технические преимущества -->
+  <section class="tech-section" id="tech">
+    <div class="section-title-wrap">
+      <h2 class="section-title">Готовы к любым склонам</h2>
+      <p class="section-desc">Технологии экипировки для уверенного катания в горах</p>
+    </div>
+
+    <div class="specs-grid">
+      <div class="spec-card">
+        <div class="spec-icon">🏔️</div>
+        <h3>Мембрана 20 000 мм</h3>
+        <p>Не промокает при мокром снеге и дожде, эффективно отводит влагу при активном спуске.</p>
+      </div>
+
+      <div class="spec-card">
+        <div class="spec-icon">🛡️</div>
+        <h3>Защита Cordura®</h3>
+        <p>Усиленные зоны на коленях и защита низа от порезов острыми кантами лыж и сноуборда.</p>
+      </div>
+
+      <div class="spec-card">
+        <div class="spec-icon">❄️</div>
+        <h3>Утеплитель PrimaLoft®</h3>
+        <p>Ультратонкие микроволокна удерживают тепло без лишнего объема. Комфорт от 0°C до -30°C.</p>
+      </div>
+
+      <div class="spec-card">
+        <div class="spec-icon">💨</div>
+        <h3>Система вентиляции</h3>
+        <p>Сетчатые вентиляционные молнии на бедрах для моментальной терморегуляции.</p>
+      </div>
+
+      <div class="spec-card">
+        <div class="spec-icon">🎿</div>
+        <h3>Снегозащитные гетры</h3>
+        <p>Эластичные внутренние манжеты предотвращают попадание снега в ботинки.</p>
+      </div>
+
+      <div class="spec-card" id="delivery">
+        <div class="spec-icon">📦</div>
+        <h3>Примерка перед покупкой</h3>
+        <p>Доставляем 2 размера на выбор курьером. Оплата только после примерки.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Модальное окно заказа -->
+  <div class="modal-overlay" id="orderModal" onclick="closeOrderModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closeOrderModal(event)">✕</button>
+      
+      <div id="modalFormContent">
+        <h2 style="font-family:'Space Grotesk'; font-size:1.5rem; margin-bottom:6px;">Оформление заказа</h2>
+        <p style="color:var(--text-muted); font-size:0.88rem; margin-bottom:18px;">
+          Менеджер свяжется для подтверждения и бронирования размера.
+        </p>
+
+        <div class="order-summary-box">
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span style="color:var(--text-muted);">Товар:</span>
+            <strong>ALPEX Pro Ride</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span style="color:var(--text-muted);">Цвет:</span>
+            <strong id="summaryColor">Бежево-Черный</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span style="color:var(--text-muted);">Размер:</span>
+            <strong id="summarySize">M / 48</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.08); padding-top:6px; margin-top:6px;">
+            <span>К оплате:</span>
+            <strong style="color:var(--accent-beige); font-size:1.15rem;">21 490 ₽</strong>
+          </div>
+        </div>
+
+        <form id="orderForm" onsubmit="handleFormSubmit(event)">
+          <div class="form-group">
+            <label>Ваше имя</label>
+            <input type="text" id="custName" placeholder="Иван" required />
+          </div>
+          <div class="form-group">
+            <label>Телефон</label>
+            <input type="tel" id="custPhone" placeholder="+7 (999) 000-00-00" required />
+          </div>
+          <div class="form-group">
+            <label>Город доставки</label>
+            <input type="text" id="custCity" placeholder="Москва, Красная Поляна, СПб..." required />
+          </div>
+          <button type="submit" class="submit-order-btn">Заказать с примеркой</button>
+        </form>
+      </div>
+
+      <div class="success-screen" id="modalSuccessContent">
+        <div class="success-icon">✓</div>
+        <h2 style="font-family:'Space Grotesk'; font-size:1.5rem; margin-bottom:8px;">Заказ принят!</h2>
+        <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:20px;">
+          Спасибо за заявку! Мы свяжемся с вами в течение 10 минут для согласования доставки.
+        </p>
+        <button class="submit-order-btn" onclick="closeOrderModal(event)">Отлично</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>© 2026 ALPEX Ski Gear. Премиальная экипировка для горных лыж и сноуборда.</p>
+    <p style="margin-top:6px; font-size:0.82rem; opacity:0.7;">Бежево-черный и белый цвета в наличии.</p>
+  </footer>
+
+  <script>
+    let currentColor = 'beige-black';
+    let currentSize = 'M';
+
+    function selectColor(color) {
+      currentColor = color;
+
+      const btnBeigeBlack = document.getElementById('btnColorBeigeBlack');
+      const btnWhite = document.getElementById('btnColorWhite');
+      const heroColorName = document.getElementById('heroColorName');
+      const colorTextLabel = document.getElementById('colorTextLabel');
+      const activeColorTag = document.getElementById('activeColorTag');
+      const summaryColor = document.getElementById('summaryColor');
+
+      const leftLegUpper = document.getElementById('leftLegUpper');
+      const rightLegUpper = document.getElementById('rightLegUpper');
+      const leftLegLower = document.getElementById('leftLegLower');
+      const rightLegLower = document.getElementById('rightLegLower');
+      const waistBand = document.getElementById('waistBand');
+
+      if (color === 'beige-black') {
+        btnBeigeBlack.classList.add('active');
+        btnWhite.classList.remove('active');
+
+        heroColorName.textContent = 'Бежево-Черный';
+        heroColorName.className = 'beige-text';
+        colorTextLabel.textContent = 'Бежево-Черный';
+        activeColorTag.textContent = 'Бежево-Черный (Dune Shadow)';
+        summaryColor.textContent = 'Бежево-Черный';
+
+        leftLegUpper.setAttribute('fill', 'url(#gradBeige)');
+        rightLegUpper.setAttribute('fill', 'url(#gradBeige)');
+        leftLegLower.setAttribute('fill', 'url(#gradBlack)');
+        rightLegLower.setAttribute('fill', 'url(#gradBlack)');
+        waistBand.setAttribute('fill', '#1b1f26');
+      } else {
+        btnWhite.classList.add('active');
+        btnBeigeBlack.classList.remove('active');
+
+        heroColorName.textContent = 'Белый';
+        heroColorName.className = 'white-text';
+        colorTextLabel.textContent = 'Белый (Snow Pearl)';
+        activeColorTag.textContent = 'Белый (Arctic Snow Pearl)';
+        summaryColor.textContent = 'Белый';
+
+        leftLegUpper.setAttribute('fill', 'url(#gradWhite)');
+        rightLegUpper.setAttribute('fill', 'url(#gradWhite)');
+        leftLegLower.setAttribute('fill', 'url(#gradWhite)');
+        rightLegLower.setAttribute('fill', 'url(#gradWhite)');
+        waistBand.setAttribute('fill', '#334155');
+      }
+    }
+
+    function selectSize(btn, size) {
+      document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSize = size;
+      const sizeLabels = {'S': 'S / 46', 'M': 'M / 48', 'L': 'L / 50', 'XL': 'XL / 52'};
+      document.getElementById('summarySize').textContent = sizeLabels[size] || size;
+    }
+
+    function openOrderModal() {
+      document.getElementById('orderModal').classList.add('active');
+      document.getElementById('modalFormContent').style.display = 'block';
+      document.getElementById('modalSuccessContent').style.display = 'none';
+    }
+
+    function closeOrderModal(e) {
+      document.getElementById('orderModal').classList.remove('active');
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      document.getElementById('modalFormContent').style.display = 'none';
+      document.getElementById('modalSuccessContent').style.display = 'block';
+    }
+  </script>
+</body>
+</html>
