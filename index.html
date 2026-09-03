@@ -2,1083 +2,1281 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ALPEX Pro Ride — Премиальные горнолыжные брюки</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>COULAIR CLUB — Горнолыжные штаны 3L Freeride | Бежево-черный и Белый</title>
+  <meta name="description" content="Премиальные горнолыжные и сноубордические штаны COULAIR CLUB. Мембрана 25 000 мм, Cordura®, свободный райдерский крой. Бежево-черный и белый цвета." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@600;700;800&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-main: #0B0E14;
-      --bg-card: #141923;
-      --accent-beige: #D8C3A5;
-      --accent-beige-dark: #b89f7f;
-      --accent-white: #F8FAFC;
-      --text-muted: #8E9BAE;
-      --text-main: #F3F4F6;
-      --border-color: rgba(255, 255, 255, 0.08);
-      --glow: 0 0 35px rgba(216, 195, 165, 0.25);
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      background-color: var(--bg-main);
-      color: var(--text-main);
-      overflow-x: hidden;
-      line-height: 1.6;
-    }
-
-    .ambient-glow-1 {
-      position: fixed;
-      top: -150px;
-      right: -100px;
-      width: 500px;
-      height: 500px;
-      background: radial-gradient(circle, rgba(216,195,165,0.12) 0%, rgba(0,0,0,0) 70%);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    .ambient-glow-2 {
-      position: fixed;
-      bottom: -150px;
-      left: -100px;
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0) 70%);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      background: rgba(11, 14, 20, 0.85);
-      backdrop-filter: blur(14px);
-      border-bottom: 1px solid var(--border-color);
-      padding: 18px 5%;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .logo {
-      font-family: 'Space Grotesk', sans-serif;
-      font-weight: 700;
-      font-size: 1.45rem;
-      letter-spacing: 2px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .logo-badge {
-      background: var(--accent-beige);
-      color: #0b0e14;
-      padding: 2px 7px;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      font-weight: 800;
-    }
-
-    nav {
-      display: flex;
-      gap: 28px;
-    }
-
-    nav a {
-      color: var(--text-muted);
-      text-decoration: none;
-      font-weight: 500;
-      font-size: 0.95rem;
-      transition: color 0.2s;
-    }
-
-    nav a:hover {
-      color: var(--accent-beige);
-    }
-
-    .header-actions {
-      display: flex;
-      gap: 16px;
-      align-items: center;
-    }
-
-    .cart-btn {
-      background: transparent;
-      border: 1px solid var(--border-color);
-      color: var(--text-main);
-      padding: 8px 18px;
-      border-radius: 99px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      transition: all 0.2s;
-    }
-
-    .cart-btn:hover {
-      border-color: var(--accent-beige);
-      box-shadow: var(--glow);
-    }
-
-    .hero {
-      position: relative;
-      padding: 50px 5% 80px;
-      max-width: 1350px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 50px;
-      align-items: center;
-      z-index: 1;
-    }
-
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(216, 195, 165, 0.12);
-      border: 1px solid rgba(216, 195, 165, 0.35);
-      color: var(--accent-beige);
-      padding: 6px 14px;
-      border-radius: 99px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      margin-bottom: 20px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .hero-title {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 3.2rem;
-      line-height: 1.15;
-      font-weight: 700;
-      margin-bottom: 20px;
-    }
-
-    .hero-title span.beige-text {
-      color: var(--accent-beige);
-      transition: color 0.3s;
-    }
-
-    .hero-title span.white-text {
-      color: #ffffff;
-      text-shadow: 0 0 25px rgba(255,255,255,0.4);
-      transition: color 0.3s;
-    }
-
-    .hero-desc {
-      color: var(--text-muted);
-      font-size: 1.1rem;
-      margin-bottom: 35px;
-      max-width: 520px;
-    }
-
-    .hero-features {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      margin-bottom: 30px;
-    }
-
-    .feature-item {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 14px;
-    }
-
-    .feature-item .val {
-      font-size: 1.3rem;
-      font-weight: 700;
-      color: var(--text-main);
-      font-family: 'Space Grotesk', sans-serif;
-    }
-
-    .feature-item .label {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .product-showcase {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 28px;
-      padding: 34px;
-      position: relative;
-      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
-    }
-
-    .visual-container {
-      position: relative;
-      width: 100%;
-      height: 380px;
-      background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.3) 80%);
-      border-radius: 20px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-      margin-bottom: 24px;
-      border: 1px solid rgba(255,255,255,0.05);
-    }
-
-    .pants-svg-wrapper {
-      position: relative;
-      width: 260px;
-      height: 350px;
-      transition: transform 0.4s ease;
-    }
-
-    .pants-svg-wrapper:hover {
-      transform: scale(1.04);
-    }
-
-    .color-tag {
-      position: absolute;
-      top: 14px;
-      left: 14px;
-      background: rgba(0,0,0,0.65);
-      backdrop-filter: blur(8px);
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 0.82rem;
-      font-weight: 600;
-      border: 1px solid rgba(255,255,255,0.12);
-    }
-
-    .selector-block {
-      margin-bottom: 20px;
-    }
-
-    .selector-label {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.88rem;
-      font-weight: 600;
-      margin-bottom: 10px;
-      color: var(--text-muted);
-    }
-
-    .selector-label span.highlight {
-      color: var(--text-main);
-    }
-
-    .color-pills {
-      display: flex;
-      gap: 12px;
-    }
-
-    .color-pill-btn {
-      flex: 1;
-      padding: 12px 14px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.03);
-      border: 2px solid var(--border-color);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: var(--text-main);
-      font-weight: 600;
-      font-size: 0.9rem;
-      transition: all 0.25s ease;
-    }
-
-    .color-pill-btn:hover {
-      background: rgba(255,255,255,0.06);
-    }
-
-    .color-pill-btn.active {
-      border-color: var(--accent-beige);
-      background: rgba(216, 195, 165, 0.12);
-      box-shadow: 0 0 20px rgba(216,195,165,0.25);
-    }
-
-    .dot {
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.3);
-      flex-shrink: 0;
-    }
-
-    .dot-beige-black {
-      background: linear-gradient(135deg, #d4be9f 50%, #16181d 50%);
-    }
-
-    .dot-white {
-      background: #f8fafc;
-      border-color: #cbd5e1;
-    }
-
-    .size-pills {
-      display: flex;
-      gap: 10px;
-    }
-
-    .size-btn {
-      flex: 1;
-      padding: 10px 0;
-      text-align: center;
-      border-radius: 12px;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border-color);
-      color: var(--text-main);
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .size-btn:hover {
-      background: rgba(255,255,255,0.08);
-    }
-
-    .size-btn.active {
-      background: var(--text-main);
-      color: #0b0e14;
-      border-color: var(--text-main);
-      font-weight: 700;
-    }
-
-    .price-action-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 24px;
-      padding-top: 20px;
-      border-top: 1px solid var(--border-color);
-    }
-
-    .price-wrapper .old-price {
-      font-size: 0.9rem;
-      text-decoration: line-through;
-      color: var(--text-muted);
-    }
-
-    .price-wrapper .current-price {
-      font-size: 1.9rem;
-      font-weight: 800;
-      font-family: 'Space Grotesk', sans-serif;
-      color: #fff;
-    }
-
-    .buy-btn {
-      background: linear-gradient(135deg, #d8c3a5 0%, #c4ab8a 100%);
-      color: #0d1117;
-      border: none;
-      padding: 15px 32px;
-      border-radius: 14px;
-      font-size: 1.02rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.25s ease;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .buy-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px rgba(216, 195, 165, 0.4);
-    }
-
-    .section-title-wrap {
-      text-align: center;
-      max-width: 650px;
-      margin: 0 auto 45px;
-    }
-
-    .section-title {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 2.3rem;
-      font-weight: 700;
-      margin-bottom: 10px;
-    }
-
-    .section-desc {
-      color: var(--text-muted);
-      font-size: 1.05rem;
-    }
-
-    .tech-section {
-      padding: 80px 5%;
-      max-width: 1350px;
-      margin: 0 auto;
-      border-top: 1px solid var(--border-color);
-    }
-
-    .specs-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 22px;
-    }
-
-    .spec-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 20px;
-      padding: 28px;
-      transition: transform 0.2s, border-color 0.2s;
-    }
-
-    .spec-card:hover {
-      transform: translateY(-4px);
-      border-color: rgba(216, 195, 165, 0.3);
-    }
-
-    .spec-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
-      background: rgba(216, 195, 165, 0.1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.4rem;
-      margin-bottom: 18px;
-      color: var(--accent-beige);
-    }
-
-    .spec-card h3 {
-      font-size: 1.2rem;
-      margin-bottom: 8px;
-      font-weight: 700;
-    }
-
-    .spec-card p {
-      color: var(--text-muted);
-      font-size: 0.92rem;
-      line-height: 1.6;
-    }
-
-    .colorways-section {
-      padding: 70px 5%;
-      max-width: 1350px;
-      margin: 0 auto;
-    }
-
-    .colorways-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 28px;
-    }
-
-    .colorway-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 24px;
-      padding: 30px;
-    }
-
-    .colorway-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 14px;
-    }
-
-    .colorway-title {
-      font-size: 1.4rem;
-      font-weight: 700;
-      font-family: 'Space Grotesk', sans-serif;
-    }
-
-    .colorway-badge {
-      font-size: 0.8rem;
-      padding: 4px 10px;
-      border-radius: 20px;
-      background: rgba(255,255,255,0.08);
-      color: var(--text-muted);
-    }
-
-    .colorway-desc {
-      color: var(--text-muted);
-      margin-bottom: 20px;
-      font-size: 0.95rem;
-    }
-
-    .colorway-preview {
-      height: 240px;
-      background: rgba(0,0,0,0.3);
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid var(--border-color);
-    }
-
-    .colorway-select-btn {
-      width: 100%;
-      margin-top: 18px;
-      padding: 13px;
-      border-radius: 12px;
-      background: transparent;
-      border: 1px solid var(--border-color);
-      color: var(--text-main);
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .colorway-select-btn:hover {
-      background: var(--accent-beige);
-      border-color: var(--accent-beige);
-      color: #111;
-    }
-
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.78);
-      backdrop-filter: blur(8px);
-      z-index: 1000;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-
-    .modal-overlay.active {
-      display: flex;
-    }
-
-    .modal {
-      background: #141923;
-      border: 1px solid var(--border-color);
-      border-radius: 24px;
-      width: 100%;
-      max-width: 500px;
-      padding: 32px;
-      position: relative;
-      box-shadow: 0 25px 50px rgba(0,0,0,0.7);
-    }
-
-    .modal-close {
-      position: absolute;
-      top: 18px;
-      right: 18px;
-      background: rgba(255,255,255,0.05);
-      border: none;
-      color: var(--text-muted);
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      cursor: pointer;
-      font-size: 1.1rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .form-group {
-      margin-bottom: 16px;
-    }
-
-    .form-group label {
-      display: block;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      margin-bottom: 6px;
-    }
-
-    .form-group input {
-      width: 100%;
-      padding: 12px 15px;
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      color: #fff;
-      font-size: 0.95rem;
-      font-family: inherit;
-    }
-
-    .form-group input:focus {
-      outline: none;
-      border-color: var(--accent-beige);
-      box-shadow: 0 0 0 3px rgba(216, 195, 165, 0.15);
-    }
-
-    .order-summary-box {
-      background: rgba(255,255,255,0.02);
-      border: 1px solid var(--border-color);
-      border-radius: 14px;
-      padding: 14px;
-      margin-bottom: 18px;
-      font-size: 0.9rem;
-    }
-
-    .submit-order-btn {
-      width: 100%;
-      padding: 15px;
-      border-radius: 12px;
-      border: none;
-      background: linear-gradient(135deg, #d8c3a5 0%, #c4ab8a 100%);
-      color: #0c1017;
-      font-weight: 700;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .submit-order-btn:hover {
-      opacity: 0.95;
-      transform: translateY(-1px);
-    }
-
-    .success-screen {
-      text-align: center;
-      padding: 15px 10px;
-      display: none;
-    }
-
-    .success-icon {
-      width: 60px;
-      height: 60px;
-      background: rgba(34, 197, 94, 0.15);
-      color: #22c55e;
-      border-radius: 50%;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.8rem;
-      margin-bottom: 16px;
-    }
-
-    footer {
-      border-top: 1px solid var(--border-color);
-      padding: 35px 5%;
-      text-align: center;
-      color: var(--text-muted);
-      font-size: 0.88rem;
-    }
-
-    @media (max-width: 968px) {
-      .hero {
-        grid-template-columns: 1fr;
-        padding-top: 25px;
-      }
-      .colorways-grid {
-        grid-template-columns: 1fr;
-      }
-      .hero-title {
-        font-size: 2.4rem;
-      }
-      nav {
-        display: none;
-      }
+      --bg-dark: #0A0C10;
+      --bg-surface: #12161F;
+      --bg-card: #181E29;
+      --accent-beige: #D4BE9F;
+      --accent-orange: #FF5500;
+      --accent-lime: #D4FF00;
+      --text-white: #F8FAFC;
+      --text-muted: #94A3B8;
+      --text-dim: #64748B;
+      --border: rgba(255, 255, 255, 0.08);
+      --font-display: 'Space Grotesk', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-xl: 30px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg-dark); color: var(--text-white); font-family: var(--font-body); line-height: 1.55; overflow-x: hidden; padding-bottom: 70px; }
+    .ambient-grid { position: fixed; inset: 0; background: radial-gradient(circle at 80% 15%, rgba(212,190,159,0.08) 0%, transparent 45%), radial-gradient(circle at 15% 75%, rgba(255,255,255,0.04) 0%, transparent 50%); pointer-events: none; z-index: 0; }
+    .top-bar { background: linear-gradient(90deg, #10131A, #1d2433, #10131A); border-bottom: 1px solid var(--border); font-size: 0.8rem; padding: 8px 4%; text-align: center; color: var(--accent-beige); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; display: flex; justify-content: center; align-items: center; gap: 14px; position: relative; z-index: 101; }
+    .top-bar-badge { background: var(--accent-orange); color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; }
+    header { position: sticky; top: 0; z-index: 100; background: rgba(10,12,16,0.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); padding: 14px 4%; display: flex; justify-content: space-between; align-items: center; }
+    .brand-link { display: flex; align-items: center; text-decoration: none; color: inherit; }
+    .brand-logo-container { width: 155px; height: 48px; display: flex; align-items: center; overflow: hidden; }
+    .brand-logo-img { height: 70px; width: auto; mix-blend-mode: screen; filter: invert(1) brightness(1.25) contrast(1.3); transform: translateY(-2px); }
+    .nav-links { display: flex; gap: 28px; list-style: none; }
+    .nav-links a { color: var(--text-muted); text-decoration: none; font-weight: 600; font-size: 0.9rem; transition: 0.2s; }
+    .nav-links a:hover { color: #fff; }
+    .header-actions { display: flex; align-items: center; gap: 14px; }
+    .club-tag { background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 6px 12px; border-radius: 99px; font-size: 0.78rem; font-weight: 700; color: var(--accent-beige); text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+    .pulse-dot { width: 7px; height: 7px; background: var(--accent-lime); border-radius: 50%; box-shadow: 0 0 10px var(--accent-lime); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.85); } }
+    .cart-trigger-btn { background: var(--bg-surface); border: 1px solid var(--border); color: #fff; padding: 9px 18px; border-radius: 99px; font-weight: 700; font-size: 0.88rem; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s; }
+    .cart-trigger-btn:hover { border-color: var(--accent-beige); background: var(--bg-card); }
+    .cart-count-badge { background: var(--accent-beige); color: #090B0E; font-size: 0.75rem; font-weight: 800; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+  </style>
+  <style>
+    /* PDP Layout */
+    .pdp-section { position: relative; z-index: 1; max-width: 1420px; margin: 0 auto; padding: 40px 4% 80px; display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 60px; align-items: start; }
+    .gallery-column { position: sticky; top: 100px; }
+    .main-image-viewport { position: relative; width: 100%; height: 620px; background: radial-gradient(circle at center, #1b212c 0%, #0d1016 85%); border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: 0 30px 60px -15px rgba(0,0,0,0.6); }
+    .main-product-img { width: 92%; height: 92%; object-fit: contain; transition: transform 0.4s ease, opacity 0.25s ease; filter: drop-shadow(0 20px 30px rgba(0,0,0,0.6)); }
+    .main-image-viewport:hover .main-product-img { transform: scale(1.05); }
+    .gallery-badge-drop { position: absolute; top: 20px; left: 20px; background: rgba(18,22,30,0.85); backdrop-filter: blur(10px); border: 1px solid var(--border); padding: 7px 16px; border-radius: 99px; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: #fff; }
+    .gallery-badge-fit { position: absolute; top: 20px; right: 20px; background: rgba(212,190,159,0.15); border: 1px solid rgba(212,190,159,0.4); color: var(--accent-beige); padding: 7px 16px; border-radius: 99px; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; }
+    .live-viewing-tag { position: absolute; bottom: 20px; left: 20px; background: rgba(14,17,24,0.85); backdrop-filter: blur(10px); border: 1px solid var(--border); padding: 8px 16px; border-radius: 99px; font-size: 0.82rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+    .live-viewing-tag strong { color: #fff; }
+    .thumbnails-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+    .thumb-btn { height: 105px; background: var(--bg-surface); border: 2px solid var(--border); border-radius: var(--radius-md); overflow: hidden; cursor: pointer; padding: 4px; transition: 0.25s; position: relative; }
+    .thumb-btn img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+    .thumb-btn:hover { border-color: rgba(212,190,159,0.4); }
+    .thumb-btn.active { border-color: var(--accent-beige); box-shadow: 0 0 16px rgba(212,190,159,0.35); }
+    .thumb-label { position: absolute; bottom: 6px; left: 6px; right: 6px; background: rgba(0,0,0,0.75); padding: 2px 4px; border-radius: 4px; font-size: 0.68rem; font-weight: 700; text-align: center; color: #fff; }
+    .pdp-info-column { padding-top: 6px; }
+    .rating-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; font-size: 0.86rem; }
+    .stars { color: #F59E0B; letter-spacing: 2px; }
+    .reviews-count { color: var(--text-muted); text-decoration: underline; cursor: pointer; font-weight: 600; }
+    .stock-counter { color: var(--accent-orange); font-weight: 700; font-size: 0.82rem; margin-left: auto; }
+    .pdp-title { font-family: var(--font-display); font-size: 2.7rem; line-height: 1.12; font-weight: 800; margin-bottom: 12px; letter-spacing: -0.5px; }
+    .pdp-subtitle { font-size: 1.05rem; color: var(--text-muted); margin-bottom: 22px; }
+    .price-box { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 26px; display: flex; align-items: center; justify-content: space-between; }
+    .curr-price { font-family: var(--font-display); font-size: 2.5rem; font-weight: 800; color: #fff; }
+    .old-price { font-size: 1.25rem; color: var(--text-dim); text-decoration: line-through; margin-left: 12px; }
+    .save-badge { background: rgba(212,190,159,0.15); border: 1px solid var(--accent-beige); color: var(--accent-beige); padding: 4px 10px; border-radius: 99px; font-size: 0.78rem; font-weight: 800; margin-left: 10px; }
+    .split-pay-note { font-size: 0.84rem; color: var(--text-muted); text-align: right; }
+    .split-pay-note strong { color: #fff; }
+    .option-group { margin-bottom: 24px; }
+    .option-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+    .option-title { font-size: 0.86rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); }
+    .option-value-label { font-size: 0.92rem; font-weight: 700; color: #fff; }
+    .color-cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .color-select-card { background: var(--bg-surface); border: 2px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; cursor: pointer; display: flex; align-items: center; gap: 14px; transition: 0.2s; }
+    .color-select-card:hover { background: var(--bg-card); }
+    .color-select-card.active { border-color: var(--accent-beige); background: rgba(212,190,159,0.08); box-shadow: 0 0 20px rgba(212,190,159,0.2); }
+    .color-disc { width: 36px; height: 36px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.25); flex-shrink: 0; }
+    .disc-beige-black { background: linear-gradient(135deg, #D4BE9F 48%, #111419 52%); }
+    .disc-white { background: linear-gradient(135deg, #FFFFFF 65%, #334155 65%); }
+    .color-info-meta h4 { font-size: 0.92rem; font-weight: 700; margin-bottom: 2px; }
+    .color-info-meta p { font-size: 0.76rem; color: var(--text-muted); }
+    .sizes-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 12px; }
+    .size-btn { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 0; text-align: center; cursor: pointer; transition: 0.2s; color: #fff; }
+    .size-btn .size-name { font-size: 1.1rem; font-weight: 800; font-family: var(--font-display); display: block; }
+    .size-btn .size-eu { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; display: block; }
+    .size-btn:hover { background: var(--bg-card); }
+    .size-btn.active { background: #fff; color: #090B0E; border-color: #fff; box-shadow: 0 4px 20px rgba(255,255,255,0.3); }
+    .size-btn.active .size-eu { color: #475569; }
+    .size-tools-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.84rem; }
+    .advisor-btn { color: var(--accent-beige); background: none; border: none; font-weight: 700; cursor: pointer; text-decoration: underline; }
+    .size-calculator-box { background: rgba(212,190,159,0.05); border: 1px dashed rgba(212,190,159,0.35); border-radius: var(--radius-md); padding: 16px; margin-top: 14px; display: none; }
+    .size-calculator-box.open { display: block; }
+    .calc-inputs-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; margin-top: 10px; }
+    .calc-input-group label { font-size: 0.76rem; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 600; }
+    .calc-input-group input { width: 100%; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: #fff; font-size: 0.9rem; }
+    .calc-run-btn { background: var(--accent-beige); color: #090B0E; border: none; border-radius: 8px; padding: 9px 16px; font-weight: 800; font-size: 0.85rem; cursor: pointer; }
+    .calc-recommendation-result { margin-top: 10px; font-size: 0.85rem; color: var(--accent-lime); font-weight: 600; }
+    .cta-actions-group { display: flex; flex-direction: column; gap: 12px; margin-top: 28px; }
+    .main-buy-btn { width: 100%; background: linear-gradient(135deg, #D4BE9F 0%, #C4A882 100%); color: #090B0E; border: none; border-radius: var(--radius-md); padding: 18px; font-size: 1.1rem; font-weight: 800; font-family: var(--font-display); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 30px rgba(212,190,159,0.35); transition: 0.25s; }
+    .main-buy-btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+    .quick-order-btn { width: 100%; background: transparent; border: 2px solid var(--border); color: #fff; border-radius: var(--radius-md); padding: 15px; font-size: 0.98rem; font-weight: 700; cursor: pointer; transition: 0.25s; }
+    .quick-order-btn:hover { border-color: var(--accent-beige); background: rgba(255,255,255,0.04); }
+    .trust-perks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--border); }
+    .perk-card { display: flex; align-items: flex-start; gap: 12px; }
+    .perk-icon { font-size: 1.3rem; }
+    .perk-meta h5 { font-size: 0.86rem; font-weight: 700; margin-bottom: 2px; }
+    .perk-meta p { font-size: 0.76rem; color: var(--text-muted); line-height: 1.4; }
+  </style>
+  <style>
+    /* Bundle Section */
+    .bundle-builder-section { background: linear-gradient(180deg, #10141D, #0c0e14); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 80px 4%; }
+    .section-container { max-width: 1380px; margin: 0 auto; }
+    .section-headline { text-align: center; max-width: 760px; margin: 0 auto 45px; }
+    .section-pill-tag { display: inline-flex; align-items: center; gap: 8px; background: rgba(212,190,159,0.12); border: 1px solid rgba(212,190,159,0.3); color: var(--accent-beige); padding: 5px 14px; border-radius: 99px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+    .section-title { font-family: var(--font-display); font-size: 2.6rem; font-weight: 800; line-height: 1.15; margin-bottom: 12px; }
+    .section-desc { color: var(--text-muted); font-size: 1.05rem; }
+    .bundle-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 36px; align-items: center; }
+    .bundle-image-card { position: relative; border-radius: var(--radius-xl); overflow: hidden; border: 1px solid var(--border); background: #141822; }
+    .bundle-image-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .bundle-discount-badge { position: absolute; top: 20px; left: 20px; background: var(--accent-orange); color: #fff; padding: 8px 18px; border-radius: 99px; font-size: 0.9rem; font-weight: 800; }
+    .bundle-selector-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 32px; }
+    .bundle-selector-card h3 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 6px; }
+    .bundle-selector-card p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; }
+    .bundle-items-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+    .bundle-item-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer; transition: 0.2s; }
+    .bundle-item-row:hover { border-color: rgba(212,190,159,0.4); }
+    .bundle-item-row.checked { border-color: var(--accent-beige); background: rgba(212,190,159,0.08); }
+    .bundle-item-left { display: flex; align-items: center; gap: 12px; }
+    .custom-check { width: 20px; height: 20px; border-radius: 5px; border: 2px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 900; color: #090B0E; }
+    .bundle-item-row.checked .custom-check { background: var(--accent-beige); border-color: var(--accent-beige); }
+    .bundle-item-name { font-weight: 700; font-size: 0.9rem; }
+    .bundle-item-badge { font-size: 0.72rem; color: var(--text-dim); display: block; }
+    .bundle-item-price { font-weight: 700; font-family: var(--font-display); font-size: 0.95rem; }
+    .bundle-total-box { border-top: 1px solid var(--border); padding-top: 18px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .bundle-total-prices { text-align: right; }
+    .bundle-total-old { font-size: 0.95rem; color: var(--text-dim); text-decoration: line-through; }
+    .bundle-total-new { font-size: 1.8rem; font-family: var(--font-display); font-weight: 800; color: var(--accent-lime); }
+    .bundle-buy-btn { width: 100%; background: #fff; color: #090B0E; border: none; border-radius: var(--radius-md); padding: 16px; font-size: 1rem; font-weight: 800; font-family: var(--font-display); cursor: pointer; transition: 0.2s; }
+    .bundle-buy-btn:hover { background: var(--accent-beige); transform: translateY(-2px); }
+
+    /* Tech Section */
+    .tech-grid-section { padding: 90px 4%; max-width: 1400px; margin: 0 auto; }
+    .tech-showcase-row { display: grid; grid-template-columns: 1fr 1fr; gap: 45px; align-items: center; margin-bottom: 50px; }
+    .tech-macro-img-wrap { border-radius: var(--radius-xl); overflow: hidden; border: 1px solid var(--border); position: relative; height: 440px; }
+    .tech-macro-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    .tech-macro-overlay-badge { position: absolute; bottom: 20px; left: 20px; background: rgba(14,18,25,0.9); backdrop-filter: blur(12px); border: 1px solid var(--border); padding: 10px 18px; border-radius: var(--radius-md); }
+    .tech-macro-overlay-badge strong { display: block; color: var(--accent-beige); font-family: var(--font-display); font-size: 1.15rem; }
+    .tech-cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .tech-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 26px 22px; transition: 0.2s; }
+    .tech-card:hover { border-color: rgba(212,190,159,0.4); transform: translateY(-4px); }
+    .tech-card-icon { width: 48px; height: 48px; border-radius: 12px; background: rgba(212,190,159,0.1); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; margin-bottom: 16px; color: var(--accent-beige); }
+    .tech-card h4 { font-size: 1.15rem; font-weight: 700; margin-bottom: 8px; }
+    .tech-card p { font-size: 0.88rem; color: var(--text-muted); line-height: 1.6; }
+
+    /* Lookbook */
+    .lookbook-section { padding: 75px 4%; background: #0d1016; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .lookbook-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1400px; margin: 0 auto; }
+    .lookbook-card { position: relative; height: 440px; border-radius: var(--radius-xl); overflow: hidden; border: 1px solid var(--border); }
+    .lookbook-card img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; }
+    .lookbook-card:hover img { transform: scale(1.04); }
+    .lookbook-caption { position: absolute; bottom: 0; inset-inline: 0; padding: 26px; background: linear-gradient(0deg, rgba(9,11,14,0.95) 0%, rgba(9,11,14,0) 100%); display: flex; justify-content: space-between; align-items: flex-end; }
+    .lookbook-caption h4 { font-family: var(--font-display); font-size: 1.3rem; font-weight: 800; margin-bottom: 4px; }
+    .lookbook-caption p { font-size: 0.85rem; color: var(--text-muted); }
+    .lookbook-tag { background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 5px 12px; border-radius: 99px; font-size: 0.74rem; font-weight: 700; text-transform: uppercase; }
+
+    /* Reviews */
+    .reviews-section { padding: 90px 4%; max-width: 1400px; margin: 0 auto; }
+    .reviews-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .review-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 26px; display: flex; flex-direction: column; justify-content: space-between; }
+    .review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .reviewer-meta h5 { font-size: 0.95rem; font-weight: 700; }
+    .reviewer-stats { font-size: 0.76rem; color: var(--text-dim); margin-top: 2px; }
+    .verified-badge { background: rgba(34,197,94,0.12); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); padding: 2px 7px; border-radius: 4px; font-size: 0.68rem; font-weight: 700; }
+    .review-body { font-size: 0.92rem; color: #CBD5E1; line-height: 1.6; margin-bottom: 16px; }
+    .review-footer { font-size: 0.76rem; color: var(--text-dim); display: flex; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 12px; }
+
+    /* FAQ */
+    .faq-section { padding: 75px 4% 90px; max-width: 900px; margin: 0 auto; }
+    .faq-list { display: flex; flex-direction: column; gap: 12px; }
+    .faq-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+    .faq-question { padding: 18px 22px; font-weight: 700; font-size: 1rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .faq-toggle-icon { font-size: 1.3rem; color: var(--accent-beige); transition: transform 0.3s; }
+    .faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.35s ease, padding 0.35s ease; color: var(--text-muted); font-size: 0.92rem; line-height: 1.6; padding: 0 22px; }
+    .faq-item.active .faq-answer { max-height: 300px; padding: 0 22px 18px; }
+    .faq-item.active .faq-toggle-icon { transform: rotate(45deg); }
+
+    /* Cart Drawer */
+    .cart-drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 1000; opacity: 0; pointer-events: none; transition: 0.3s; }
+    .cart-drawer-overlay.open { opacity: 1; pointer-events: auto; }
+    .cart-drawer { position: fixed; top: 0; right: -480px; bottom: 0; width: 100%; max-width: 450px; background: var(--bg-surface); border-left: 1px solid var(--border); z-index: 1001; display: flex; flex-direction: column; box-shadow: -15px 0 50px rgba(0,0,0,0.8); transition: right 0.35s cubic-bezier(0.16,1,0.3,1); }
+    .cart-drawer.open { right: 0; }
+    .cart-header { padding: 22px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .cart-header h3 { font-family: var(--font-display); font-size: 1.35rem; }
+    .drawer-close-btn { background: var(--bg-card); border: 1px solid var(--border); color: #fff; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .cart-free-shipping-bar { background: rgba(212,190,159,0.08); padding: 10px 22px; font-size: 0.8rem; border-bottom: 1px solid var(--border); color: var(--accent-beige); }
+    .cart-items-container { flex: 1; overflow-y: auto; padding: 20px; }
+    .cart-item-card { display: flex; gap: 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; margin-bottom: 12px; }
+    .cart-item-thumb { width: 75px; height: 85px; border-radius: 8px; background: #090B0E; object-fit: contain; }
+    .cart-item-details { flex: 1; }
+    .cart-item-details h4 { font-size: 0.92rem; margin-bottom: 3px; }
+    .cart-item-meta { font-size: 0.76rem; color: var(--text-muted); margin-bottom: 6px; }
+    .cart-item-bottom { display: flex; justify-content: space-between; align-items: center; }
+    .cart-item-price { font-weight: 800; font-family: var(--font-display); font-size: 0.95rem; }
+    .cart-item-remove { background: none; border: none; color: var(--text-dim); font-size: 0.78rem; cursor: pointer; text-decoration: underline; }
+    .cart-footer { padding: 20px; border-top: 1px solid var(--border); background: var(--bg-dark); }
+    .cart-promo-row { display: flex; gap: 8px; margin-bottom: 16px; }
+    .cart-promo-input { flex: 1; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: #fff; font-size: 0.85rem; text-transform: uppercase; }
+    .cart-promo-btn { background: var(--bg-card); border: 1px solid var(--border); color: #fff; padding: 0 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
+    .cart-summary-line { display: flex; justify-content: space-between; font-size: 0.88rem; color: var(--text-muted); margin-bottom: 6px; }
+    .cart-total-line { display: flex; justify-content: space-between; font-size: 1.25rem; font-family: var(--font-display); font-weight: 800; color: #fff; margin-top: 10px; margin-bottom: 18px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .cart-checkout-btn { width: 100%; background: linear-gradient(135deg, #D4BE9F 0%, #C4A882 100%); color: #090B0E; border: none; border-radius: var(--radius-md); padding: 15px; font-size: 1rem; font-weight: 800; font-family: var(--font-display); cursor: pointer; }
+
+    /* Modal */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .modal-backdrop.open { display: flex; }
+    .modal-window { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-xl); width: 100%; max-width: 520px; padding: 32px; position: relative; max-height: 92vh; overflow-y: auto; }
+    .modal-close-icon { position: absolute; top: 20px; right: 20px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); width: 34px; height: 34px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .order-review-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; margin: 16px 0 20px; }
+    .order-review-row { display: flex; justify-content: space-between; font-size: 0.86rem; margin-bottom: 5px; color: var(--text-muted); }
+    .order-review-row strong { color: #fff; }
+    .form-field { margin-bottom: 14px; }
+    .form-field label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; }
+    .form-field input { width: 100%; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; color: #fff; font-size: 0.92rem; }
+    .delivery-options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+    .delivery-radio-card { background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; padding: 10px; cursor: pointer; font-size: 0.82rem; }
+    .delivery-radio-card.active { border-color: var(--accent-beige); background: rgba(212,190,159,0.08); }
+    .delivery-radio-card strong { display: block; color: #fff; }
+    .order-submit-btn { width: 100%; background: linear-gradient(135deg, #D4BE9F 0%, #C4A882 100%); color: #090B0E; border: none; border-radius: var(--radius-md); padding: 16px; font-size: 1.05rem; font-weight: 800; font-family: var(--font-display); cursor: pointer; margin-top: 8px; }
+    .order-success-screen { text-align: center; padding: 20px 10px; display: none; }
+    .success-badge-icon { width: 64px; height: 64px; background: rgba(34,197,94,0.15); color: #22c55e; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 2rem; margin-bottom: 16px; }
+
+    /* Sticky Mobile */
+    .sticky-mobile-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(14,18,25,0.95); backdrop-filter: blur(14px); border-top: 1px solid var(--border); padding: 12px 16px; z-index: 99; display: none; align-items: center; justify-content: space-between; }
+    .mobile-bar-price { font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; }
+    .mobile-bar-meta { font-size: 0.72rem; color: var(--text-muted); }
+    .mobile-bar-cta { background: var(--accent-beige); color: #090B0E; border: none; padding: 11px 22px; border-radius: 8px; font-weight: 800; font-size: 0.92rem; cursor: pointer; }
+
+    /* Footer */
+    footer { background: #07090C; border-top: 1px solid var(--border); padding: 55px 4% 28px; }
+    .footer-container { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 36px; margin-bottom: 35px; }
+    .footer-about p { color: var(--text-muted); font-size: 0.88rem; margin: 12px 0 18px; max-width: 300px; }
+    .footer-col h5 { font-size: 0.88rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+    .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .footer-col a { color: var(--text-muted); text-decoration: none; font-size: 0.86rem; transition: 0.2s; }
+    .footer-col a:hover { color: var(--accent-beige); }
+    .footer-bottom { max-width: 1400px; margin: 0 auto; padding-top: 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; color: var(--text-dim); font-size: 0.78rem; }
+
+    @media (max-width: 1024px) {
+      .pdp-section, .bundle-grid, .tech-showcase-row, .lookbook-grid, .reviews-grid, .footer-container { grid-template-columns: 1fr; }
+      .gallery-column { position: static; }
+      .main-image-viewport { height: 480px; }
+      .tech-cards-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 768px) {
+      .nav-links, .club-tag { display: none; }
+      .pdp-title { font-size: 2.1rem; }
+      .main-image-viewport { height: 380px; }
+      .thumbnails-strip { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+      .thumb-btn { height: 75px; }
+      .tech-cards-grid { grid-template-columns: 1fr; }
+      .sticky-mobile-bar { display: flex; }
     }
   </style>
 </head>
 <body>
-  <div class="ambient-glow-1"></div>
-  <div class="ambient-glow-2"></div>
+  <div class="ambient-grid"></div>
+
+  <div class="top-bar">
+    <span class="top-bar-badge">Дроп 01 // Winter 26/27</span>
+    <span>Бесплатная доставка и примерка 2-х размеров по РФ • Оплата после примерки</span>
+  </div>
 
   <header>
-    <div class="logo">
-      ALPEX <span class="logo-badge">PRO RIDE</span>
-    </div>
-    <nav>
-      <a href="#models">Модели & Цвета</a>
-      <a href="#tech">Мембрана & Технологии</a>
-      <a href="#delivery">Оплата & Доставка</a>
-    </nav>
+    <a href="#" class="brand-link">
+      <div class="brand-logo-container">
+        <img src="assets/logo.jpg" alt="COULAIR CLUB" class="brand-logo-img" />
+      </div>
+    </a>
+
+    <ul class="nav-links">
+      <li><a href="#pdp">Штаны 3L Bib</a></li>
+      <li><a href="#bundle">Полный комплект</a></li>
+      <li><a href="#tech">Мембрана & Cordura®</a></li>
+      <li><a href="#lookbook">Лукбук</a></li>
+      <li><a href="#reviews">Отзывы райдеров</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+
     <div class="header-actions">
-      <button class="cart-btn" onclick="openOrderModal()">
-        <span>🛒 Быстрый заказ</span>
+      <div class="club-tag">
+        <span class="pulse-dot"></span>
+        <span>Rider Owned</span>
+      </div>
+
+      <button class="cart-trigger-btn" onclick="openCartDrawer()">
+        <span>Корзина</span>
+        <span class="cart-count-badge" id="headerCartCount">1</span>
       </button>
     </div>
   </header>
 
-  <section class="hero">
-    <div class="hero-info">
-      <div class="hero-badge">Коллекция Winter 2026/2027</div>
-      <h1 class="hero-title">
-        Горнолыжные штаны <br/>
-        <span class="beige-text" id="heroColorName">Бежево-Черный</span>
-      </h1>
-      <p class="hero-desc">
-        Анатомический крой для свободного катания, мембранная ткань 20 000 / 20 000 мм, вставки Cordura® и утеплитель PrimaLoft®. Идеальны для любых погодных условий до -30°C.
+  <main class="pdp-section" id="pdp">
+    <div class="gallery-column">
+      <div class="main-image-viewport" id="mainImageViewport">
+        <span class="gallery-badge-drop">Drop 01 // Limited</span>
+        <span class="gallery-badge-fit">Baggy Freeride Fit</span>
+        
+        <img src="assets/pants-beige-black.jpg" alt="COULAIR Freeride Pants" class="main-product-img" id="mainProductImg" />
+
+        <div class="live-viewing-tag">
+          <span class="pulse-dot"></span>
+          <span>Сейчас смотрят: <strong id="liveWatchersCount">8 человек</strong></span>
+        </div>
+      </div>
+
+      <div class="thumbnails-strip">
+        <button class="thumb-btn active" onclick="switchMainImage('assets/pants-beige-black.jpg', this)">
+          <img src="assets/pants-beige-black.jpg" alt="Beige Black" />
+          <span class="thumb-label">Беж/Черный</span>
+        </button>
+        <button class="thumb-btn" onclick="switchMainImage('assets/pants-white.jpg', this)">
+          <img src="assets/pants-white.jpg" alt="White" />
+          <span class="thumb-label">Белый Pearl</span>
+        </button>
+        <button class="thumb-btn" onclick="switchMainImage('assets/macro-waterproof.jpg', this)">
+          <img src="assets/macro-waterproof.jpg" alt="Macro Cordura" />
+          <span class="thumb-label">Мембрана YKK</span>
+        </button>
+        <button class="thumb-btn" onclick="switchMainImage('assets/hero-action.jpg', this)">
+          <img src="assets/hero-action.jpg" alt="Action Rider" />
+          <span class="thumb-label">В горах</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="pdp-info-column">
+      <div class="rating-row">
+        <span class="stars">★★★★★</span>
+        <span class="reviews-count" onclick="document.getElementById('reviews').scrollIntoView({behavior:'smooth'})">4.94 (540+ отзывов)</span>
+        <div class="stock-counter">
+          <span>⚡ В наличии: осталось 14 шт.</span>
+        </div>
+      </div>
+
+      <h1 class="pdp-title">COULAIR PRO 3L<br/>FREERIDE BIB</h1>
+      <p class="pdp-subtitle">
+        Флагманские 3-слойные мембранные горнолыжные штаны-комбинезон с защитой Cordura® 500D и анатомическим кроем для глубокого снега.
       </p>
 
-      <div class="hero-features">
-        <div class="feature-item">
-          <div class="val">20K / 20K</div>
-          <div class="label">Водостойкость</div>
+      <div class="price-box">
+        <div>
+          <div style="display:flex; align-items:baseline;">
+            <span class="curr-price">21 900 ₽</span>
+            <span class="old-price">29 500 ₽</span>
+            <span class="save-badge">-26%</span>
+          </div>
+          <span style="font-size:0.78rem; color:var(--text-muted);">Спеццена первого дропа</span>
         </div>
-        <div class="feature-item">
-          <div class="val">PrimaLoft®</div>
-          <div class="label">Утеплитель</div>
-        </div>
-        <div class="feature-item">
-          <div class="val">-30°C</div>
-          <div class="label">Тепловой предел</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="product-showcase">
-      <div class="visual-container">
-        <div class="color-tag" id="activeColorTag">Бежево-Черный (Dune Shadow)</div>
-        
-        <div class="pants-svg-wrapper" id="pantsSvgContainer">
-          <svg viewBox="0 0 300 420" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="gradBeige" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#E2D4BF" />
-                <stop offset="60%" stop-color="#CBB496" />
-                <stop offset="100%" stop-color="#A89375" />
-              </linearGradient>
-              <linearGradient id="gradBlack" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#242830" />
-                <stop offset="100%" stop-color="#111317" />
-              </linearGradient>
-              <linearGradient id="gradWhite" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#FFFFFF" />
-                <stop offset="70%" stop-color="#F1F5F9" />
-                <stop offset="100%" stop-color="#CBD5E1" />
-              </linearGradient>
-              <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
-                <feDropShadow dx="0" dy="12" stdDeviation="15" flood-color="#000" flood-opacity="0.45"/>
-              </filter>
-            </defs>
-
-            <g id="skiPantsMesh" filter="url(#dropShadow)">
-              <!-- Пояс -->
-              <path id="waistBand" d="M 85 45 Q 150 40 215 45 L 218 70 Q 150 64 82 70 Z" fill="#1b1f26" />
-              <rect x="138" y="47" width="24" height="20" rx="3" fill="#A89375" />
-              <rect x="144" y="52" width="12" height="10" rx="1" fill="#1b1f26" />
-
-              <!-- Верхняя часть штанов -->
-              <path id="leftLegUpper" d="M 82 70 Q 75 140 70 230 L 142 230 Q 146 150 148 90 Z" fill="url(#gradBeige)" />
-              <path id="rightLegUpper" d="M 218 70 Q 225 140 230 230 L 158 230 Q 154 150 152 90 Z" fill="url(#gradBeige)" />
-              <path id="crotchGusset" d="M 144 140 L 156 140 L 154 210 L 146 210 Z" fill="#191d24" opacity="0.6" />
-
-              <!-- Нижняя часть штанин -->
-              <path id="leftLegLower" d="M 70 230 L 60 380 Q 95 388 135 382 L 142 230 Z" fill="url(#gradBlack)" />
-              <path id="rightLegLower" d="M 230 230 L 240 380 Q 205 388 165 382 L 158 230 Z" fill="url(#gradBlack)" />
-
-              <!-- Коленные вставки -->
-              <path id="leftKnee" d="M 68 215 L 143 215 L 141 245 L 69 245 Z" fill="#20252e" opacity="0.4" />
-              <path id="rightKnee" d="M 232 215 L 157 215 L 159 245 L 231 245 Z" fill="#20252e" opacity="0.4" />
-
-              <!-- Вентиляция с акцентом -->
-              <path d="M 134 110 L 131 170" stroke="#FF5722" stroke-width="3" stroke-linecap="round" />
-              <path d="M 166 110 L 169 170" stroke="#FF5722" stroke-width="3" stroke-linecap="round" />
-              <text x="110" y="105" fill="#FF5722" font-size="9" font-family="monospace">AIR VENT</text>
-
-              <!-- Защита Cordura снизу -->
-              <path id="leftScuff" d="M 120 340 L 135 382 L 105 384 Z" fill="#0b0e14" />
-              <path id="rightScuff" d="M 180 340 L 165 382 L 195 384 Z" fill="#0b0e14" />
-
-              <!-- Карманы молнии -->
-              <path d="M 88 100 L 115 130" stroke="#111" stroke-width="3.5" stroke-linecap="round" />
-              <path d="M 212 100 L 185 130" stroke="#111" stroke-width="3.5" stroke-linecap="round" />
-            </g>
-          </svg>
+        <div class="split-pay-note">
+          <span>или 4 платежа по <strong>5 475 ₽</strong></span><br/>
+          <span style="color:var(--accent-beige); font-weight:700;">в Долями / Сплит без %</span>
         </div>
       </div>
 
-      <!-- Выбор цвета -->
-      <div class="selector-block">
-        <div class="selector-label">
-          <span>ЦВЕТ</span>
-          <span class="highlight" id="colorTextLabel">Бежево-Черный</span>
+      <div class="option-group">
+        <div class="option-header">
+          <span class="option-title">Цветовая гамма</span>
+          <span class="option-value-label" id="currentColorLabel">Бежево-Черный (Dune & Shadow)</span>
         </div>
-        <div class="color-pills">
-          <button class="color-pill-btn active" id="btnColorBeigeBlack" onclick="selectColor('beige-black')">
-            <span class="dot dot-beige-black"></span>
-            Бежево-Черный
+        <div class="color-cards-grid">
+          <div class="color-select-card active" id="colorCardBeige" onclick="selectColorway('beige-black')">
+            <div class="color-disc disc-beige-black"></div>
+            <div class="color-info-meta">
+              <h4>Dune & Shadow</h4>
+              <p>Бежевый верх / Черный Cordura® низ</p>
+            </div>
+          </div>
+          <div class="color-select-card" id="colorCardWhite" onclick="selectColorway('white')">
+            <div class="color-disc disc-white"></div>
+            <div class="color-info-meta">
+              <h4>Arctic Snow Pearl</h4>
+              <p>Жемчужно-белый с акцентными YKK</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="option-group">
+        <div class="option-header">
+          <span class="option-title">Выберите размер</span>
+          <span class="option-value-label" id="currentSizeLabel">M — 48/50 (Рост 175-182 см)</span>
+        </div>
+        <div class="sizes-grid">
+          <button class="size-btn" onclick="selectSize(this, 'S', '46-48', '168-175 см')">
+            <span class="size-name">S</span>
+            <span class="size-eu">46-48</span>
           </button>
-          <button class="color-pill-btn" id="btnColorWhite" onclick="selectColor('white')">
-            <span class="dot dot-white"></span>
-            Белый (Snow Pearl)
+          <button class="size-btn active" onclick="selectSize(this, 'M', '48-50', '175-182 см')">
+            <span class="size-name">M</span>
+            <span class="size-eu">48-50</span>
+          </button>
+          <button class="size-btn" onclick="selectSize(this, 'L', '50-52', '180-188 см')">
+            <span class="size-name">L</span>
+            <span class="size-eu">50-52</span>
+          </button>
+          <button class="size-btn" onclick="selectSize(this, 'XL', '52-54', '185-194 см')">
+            <span class="size-name">XL</span>
+            <span class="size-eu">52-54</span>
+          </button>
+          <button class="size-btn" onclick="selectSize(this, 'XXL', '54-56', '190-200 см')">
+            <span class="size-name">XXL</span>
+            <span class="size-eu">54-56</span>
           </button>
         </div>
-      </div>
 
-      <!-- Выбор размера -->
-      <div class="selector-block">
-        <div class="selector-label">
-          <span>РАЗМЕР</span>
-          <a href="javascript:void(0)" onclick="alert('Таблица размеров:\nS: 46-48 (рост 170-176 см)\nM: 48-50 (рост 175-182 см)\nL: 50-52 (рост 180-188 см)\nXL: 52-54 (рост 185-195 см)')" style="color:var(--accent-beige); text-decoration:none; font-size:0.8rem;">Таблица размеров</a>
+        <div class="size-tools-row">
+          <button class="advisor-btn" onclick="toggleSizeCalc()">
+            📐 Не знаешь размер? Умный подбор по росту/весу
+          </button>
+          <span style="color:var(--text-dim);">Свободный крой (Rider Baggy)</span>
         </div>
-        <div class="size-pills">
-          <button class="size-btn" onclick="selectSize(this, 'S')">S / 46</button>
-          <button class="size-btn active" onclick="selectSize(this, 'M')">M / 48</button>
-          <button class="size-btn" onclick="selectSize(this, 'L')">L / 50</button>
-          <button class="size-btn" onclick="selectSize(this, 'XL')">XL / 52</button>
-        </div>
-      </div>
 
-      <div class="price-action-row">
-        <div class="price-wrapper">
-          <div class="old-price">28 990 ₽</div>
-          <div class="current-price">21 490 ₽</div>
-        </div>
-        <button class="buy-btn" onclick="openOrderModal()">
-          <span>Купить сейчас</span>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
-      </div>
-    </div>
-  </section>
-
-  <!-- Блок с расцветками -->
-  <section class="colorways-section" id="models">
-    <div class="section-title-wrap">
-      <h2 class="section-title">Две легендарные расцветки</h2>
-      <p class="section-desc">Выберите расцветку под ваш горнолыжный или сноубордический образ</p>
-    </div>
-
-    <div class="colorways-grid">
-      <!-- 1. Бежево-Черный -->
-      <div class="colorway-card">
-        <div class="colorway-header">
-          <div class="colorway-title">Dune / Shadow Black</div>
-          <div class="colorway-badge">Бежево-Черный</div>
-        </div>
-        <p class="colorway-desc">
-          Песочный матовый беж с черными усилениями Cordura® на коленях и манжетах. Практичный, стильный, сочетается с любой курткой.
-        </p>
-        <div class="colorway-preview">
-          <div style="text-align:center;">
-            <div style="display:flex; justify-content:center; gap:12px; margin-bottom:12px;">
-              <span style="width:44px; height:44px; border-radius:50%; background:#D8C3A5; display:inline-block; border:2px solid #fff;"></span>
-              <span style="width:44px; height:44px; border-radius:50%; background:#16181d; display:inline-block; border:2px solid #555;"></span>
+        <div class="size-calculator-box" id="sizeCalculatorBox">
+          <span style="font-weight:700; font-size:0.86rem; color:#fff;">Калькулятор идеальной ростовки</span>
+          <div class="calc-inputs-row">
+            <div class="calc-input-group">
+              <label>Ваш рост (см)</label>
+              <input type="number" id="calcHeight" placeholder="178" value="178" />
             </div>
-            <p style="font-size:0.9rem; color:var(--text-muted);">Матовый песок + Черный графит</p>
-          </div>
-        </div>
-        <button class="colorway-select-btn" onclick="selectColor('beige-black'); window.scrollTo({top: 0, behavior:'smooth'});">
-          Выбрать Бежево-Черный
-        </button>
-      </div>
-
-      <!-- 2. Белый -->
-      <div class="colorway-card">
-        <div class="colorway-header">
-          <div class="colorway-title">Arctic Snow Pearl</div>
-          <div class="colorway-badge">Белый</div>
-        </div>
-        <p class="colorway-desc">
-          Чистый белоснежный оттенок с грязе- и водоотталкивающей пропиткой Teflon EcoElite™. Эффектно выглядит на склонах и в солнечный день.
-        </p>
-        <div class="colorway-preview">
-          <div style="text-align:center;">
-            <div style="display:flex; justify-content:center; gap:12px; margin-bottom:12px;">
-              <span style="width:44px; height:44px; border-radius:50%; background:#ffffff; display:inline-block; border:2px solid #cbd5e1; box-shadow:0 0 12px rgba(255,255,255,0.4)"></span>
-              <span style="width:44px; height:44px; border-radius:50%; background:#475569; display:inline-block; border:2px solid #555;"></span>
+            <div class="calc-input-group">
+              <label>Ваш вес (кг)</label>
+              <input type="number" id="calcWeight" placeholder="75" value="75" />
             </div>
-            <p style="font-size:0.9rem; color:var(--text-muted);">Белоснежный с акцентными молниями</p>
+            <button class="calc-run-btn" onclick="calculateRecommendedSize()">Рассчитать</button>
+          </div>
+          <div class="calc-recommendation-result" id="calcResultText">
+            Рекомендуем размер <strong>L (50-52)</strong> для свободы движений и защиты коленей.
           </div>
         </div>
-        <button class="colorway-select-btn" onclick="selectColor('white'); window.scrollTo({top: 0, behavior:'smooth'});">
-          Выбрать Белый
+      </div>
+
+      <div class="cta-actions-group">
+        <button class="main-buy-btn" onclick="addToCartAndOpen()">
+          <span>Добавить в корзину • 21 900 ₽</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+        <button class="quick-order-btn" onclick="openOrderModal('single')">
+          ⚡ Быстрый заказ с примеркой 2-х размеров
         </button>
       </div>
+
+      <div class="trust-perks-grid">
+        <div class="perk-card">
+          <div class="perk-icon">📦</div>
+          <div class="perk-meta">
+            <h5>Примерка перед оплатой</h5>
+            <p>Курьер привезет 2 размера на выбор прямо к вам домой.</p>
+          </div>
+        </div>
+        <div class="perk-card">
+          <div class="perk-icon">🛡️</div>
+          <div class="perk-meta">
+            <h5>Гарантия 2 года</h5>
+            <p>На все мембранные слои, проклейку швов и молнии YKK.</p>
+          </div>
+        </div>
+        <div class="perk-card">
+          <div class="perk-icon">🏔️</div>
+          <div class="perk-meta">
+            <h5>Протестировано райдерами</h5>
+            <p>Шерегеш, Поляна и Эльбрус при ветре до 25 м/с.</p>
+          </div>
+        </div>
+        <div class="perk-card">
+          <div class="perk-icon">🔄</div>
+          <div class="perk-meta">
+            <h5>Легкий возврат 30 дней</h5>
+            <p>Без лишних вопросов через любой пункт СДЭК.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <!-- Bundle Section -->
+  <section class="bundle-builder-section" id="bundle">
+    <div class="section-container">
+      <div class="section-headline">
+        <span class="section-pill-tag">Сетап для склона</span>
+        <h2 class="section-title">Полный комплект экипировки COULAIR</h2>
+        <p class="section-desc">
+          Соберите единый образ для катания. При покупке комплекта со штанами действует скидка <strong>20%</strong> на все позиции.
+        </p>
+      </div>
+
+      <div class="bundle-grid">
+        <div class="bundle-image-card">
+          <span class="bundle-discount-badge">Выгода до 14 000 ₽</span>
+          <img src="assets/full-kit.jpg" alt="COULAIR Full Gear Kit" />
+        </div>
+
+        <div class="bundle-selector-card">
+          <h3>Ваш комплект для фрирайда</h3>
+          <p>Отметьте нужные элементы, чтобы собрать единый сет:</p>
+
+          <div class="bundle-items-list">
+            <div class="bundle-item-row checked" onclick="toggleBundleItem(this, 21900, true)">
+              <div class="bundle-item-left">
+                <div class="custom-check">✓</div>
+                <div>
+                  <span class="bundle-item-name">Штаны COULAIR Pro 3L Bib</span>
+                  <span class="bundle-item-badge">Базовый элемент комплекта</span>
+                </div>
+              </div>
+              <span class="bundle-item-price">21 900 ₽</span>
+            </div>
+
+            <div class="bundle-item-row checked" id="bundleAnorak" onclick="toggleBundleItem(this, 24900)">
+              <div class="bundle-item-left">
+                <div class="custom-check">✓</div>
+                <div>
+                  <span class="bundle-item-name">Штормовой анорак StormShell 3L</span>
+                  <span class="bundle-item-badge">Мембрана 25К, ветрозащитная юбка</span>
+                </div>
+              </div>
+              <span class="bundle-item-price">24 900 ₽</span>
+            </div>
+
+            <div class="bundle-item-row checked" id="bundleMittens" onclick="toggleBundleItem(this, 5900)">
+              <div class="bundle-item-left">
+                <div class="custom-check">✓</div>
+                <div>
+                  <span class="bundle-item-name">Кожаные варежки Freeride Pro</span>
+                  <span class="bundle-item-badge">Gore-Tex мембрана + PrimaLoft</span>
+                </div>
+              </div>
+              <span class="bundle-item-price">5 900 ₽</span>
+            </div>
+
+            <div class="bundle-item-row" id="bundleGoggles" onclick="toggleBundleItem(this, 7900)">
+              <div class="bundle-item-left">
+                <div class="custom-check"></div>
+                <div>
+                  <span class="bundle-item-name">Магнитная маска Spheric View</span>
+                  <span class="bundle-item-badge">2 сменные линзы (солнце / туман)</span>
+                </div>
+              </div>
+              <span class="bundle-item-price">+7 900 ₽</span>
+            </div>
+
+            <div class="bundle-item-row" id="bundleBelt" onclick="toggleBundleItem(this, 2400)">
+              <div class="bundle-item-left">
+                <div class="custom-check"></div>
+                <div>
+                  <span class="bundle-item-name">Стретч-ремень Magnetic Lock</span>
+                  <span class="bundle-item-badge">Анодированная пряжка Fidlock</span>
+                </div>
+              </div>
+              <span class="bundle-item-price">+2 400 ₽</span>
+            </div>
+          </div>
+
+          <div class="bundle-total-box">
+            <div>
+              <span style="font-size:0.85rem; color:var(--text-muted); display:block;">Итого за комплект:</span>
+              <span class="bundle-total-old" id="bundleOldPrice">52 700 ₽</span>
+            </div>
+            <div class="bundle-total-prices">
+              <span class="bundle-total-new" id="bundleFinalPrice">42 160 ₽</span>
+            </div>
+          </div>
+
+          <button class="bundle-buy-btn" onclick="openOrderModal('bundle')">
+            Заказать весь комплект со скидкой
+          </button>
+        </div>
+      </div>
     </div>
   </section>
 
-  <!-- Технические преимущества -->
-  <section class="tech-section" id="tech">
-    <div class="section-title-wrap">
-      <h2 class="section-title">Готовы к любым склонам</h2>
-      <p class="section-desc">Технологии экипировки для уверенного катания в горах</p>
+  <!-- Tech Specs -->
+  <section class="tech-grid-section" id="tech">
+    <div class="section-headline">
+      <span class="section-pill-tag">Технологии</span>
+      <h2 class="section-title">Созданы выдерживать штормовые горы</h2>
+      <p class="section-desc">Каждая деталь испытана в суровых условиях Шерегеша и Приэльбрусья</p>
     </div>
 
-    <div class="specs-grid">
-      <div class="spec-card">
-        <div class="spec-icon">🏔️</div>
-        <h3>Мембрана 20 000 мм</h3>
-        <p>Не промокает при мокром снеге и дожде, эффективно отводит влагу при активном спуске.</p>
+    <div class="tech-showcase-row">
+      <div class="tech-macro-img-wrap">
+        <img src="assets/macro-waterproof.jpg" alt="Cordura & taped seam" />
+        <div class="tech-macro-overlay-badge">
+          <strong>Cordura® 500D Ballistic</strong>
+          <span style="font-size:0.82rem; color:var(--text-muted);">100% герметизация ультразвуковой лентой</span>
+        </div>
       </div>
 
-      <div class="spec-card">
-        <div class="spec-icon">🛡️</div>
-        <h3>Защита Cordura®</h3>
-        <p>Усиленные зоны на коленях и защита низа от порезов острыми кантами лыж и сноуборда.</p>
+      <div style="display:flex; flex-direction:column; gap:20px;">
+        <h3 style="font-family:var(--font-display); font-size:2rem; line-height:1.2;">
+          Мембрана 3L Couloir-Shield™ <br/>
+          <span style="color:var(--accent-beige);">25 000 мм / 20 000 г/м²</span>
+        </h3>
+        <p style="color:var(--text-muted); font-size:1rem; line-height:1.7;">
+          Трехслойная ламинированная ткань японского плетения не пропускает шквальный ветер и мокрый снег, мгновенно выводя пар при интенсивных спусках. Пропитка C6 DWR заставляет воду скатываться каплями, не утяжеляя ткань.
+        </p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:6px;">
+          <div style="background:var(--bg-surface); padding:16px; border-radius:12px; border:1px solid var(--border);">
+            <div style="font-size:1.6rem; font-weight:800; font-family:var(--font-display); color:#fff;">25 000 мм</div>
+            <div style="font-size:0.76rem; color:var(--text-muted); text-transform:uppercase;">Водостойкость</div>
+          </div>
+          <div style="background:var(--bg-surface); padding:16px; border-radius:12px; border:1px solid var(--border);">
+            <div style="font-size:1.6rem; font-weight:800; font-family:var(--font-display); color:#fff;">-35°C</div>
+            <div style="font-size:0.76rem; color:var(--text-muted); text-transform:uppercase;">Тепловой комфорт</div>
+          </div>
+        </div>
       </div>
+    </div>
 
-      <div class="spec-card">
-        <div class="spec-icon">❄️</div>
-        <h3>Утеплитель PrimaLoft®</h3>
-        <p>Ультратонкие микроволокна удерживают тепло без лишнего объема. Комфорт от 0°C до -30°C.</p>
+    <div class="tech-cards-grid">
+      <div class="tech-card">
+        <div class="tech-card-icon">🛡️</div>
+        <h4>Защита Cordura® 500D</h4>
+        <p>Нижняя кромка и колени усилены баллистическим нейлоном. Острые канты лыж и сноуборда не порежут ткань.</p>
       </div>
-
-      <div class="spec-card">
-        <div class="spec-icon">💨</div>
-        <h3>Система вентиляции</h3>
-        <p>Сетчатые вентиляционные молнии на бедрах для моментальной терморегуляции.</p>
+      <div class="tech-card">
+        <div class="tech-card-icon">⚡</div>
+        <h4>Молнии YKK AquaGuard®</h4>
+        <p>Матовые влагозащитные молнии с полиуретановой ламинацией гарантируют сухость карманов в паудере.</p>
       </div>
-
-      <div class="spec-card">
-        <div class="spec-icon">🎿</div>
-        <h3>Снегозащитные гетры</h3>
-        <p>Эластичные внутренние манжеты предотвращают попадание снега в ботинки.</p>
+      <div class="tech-card">
+        <div class="tech-card-icon">❄️</div>
+        <h4>Утеплитель PrimaLoft® Gold</h4>
+        <p>Ультратонкие микроволокна удерживают тепло без объема. Выдерживает мороз до -35°C при активном спуске.</p>
       </div>
-
-      <div class="spec-card" id="delivery">
-        <div class="spec-icon">📦</div>
-        <h3>Примерка перед покупкой</h3>
-        <p>Доставляем 2 размера на выбор курьером. Оплата только после примерки.</p>
+      <div class="tech-card">
+        <div class="tech-card-icon">💨</div>
+        <h4>Вентиляция с сеткой</h4>
+        <p>Вентиляционные отверстия на молниях на внутренней стороне бедер для терморегуляции на подъемниках.</p>
+      </div>
+      <div class="tech-card">
+        <div class="tech-card-icon">🎿</div>
+        <h4>Снегозащитные гетры 360°</h4>
+        <p>Эластичные внутренние манжеты с силиконовой лентой и крючком для шнуровки исключают попадание снега в ботинок.</p>
+      </div>
+      <div class="tech-card">
+        <div class="tech-card-icon">🎯</div>
+        <h4>Анатомическая артикуляция</h4>
+        <p>Формованные колени и крой ластовицы дают полную свободу при дропах, приседаниях и трюках в парке.</p>
       </div>
     </div>
   </section>
 
-  <!-- Модальное окно заказа -->
-  <div class="modal-overlay" id="orderModal" onclick="closeOrderModal(event)">
-    <div class="modal" onclick="event.stopPropagation()">
-      <button class="modal-close" onclick="closeOrderModal(event)">✕</button>
-      
-      <div id="modalFormContent">
-        <h2 style="font-family:'Space Grotesk'; font-size:1.5rem; margin-bottom:6px;">Оформление заказа</h2>
-        <p style="color:var(--text-muted); font-size:0.88rem; margin-bottom:18px;">
-          Менеджер свяжется для подтверждения и бронирования размера.
+  <!-- Lookbook -->
+  <section class="lookbook-section" id="lookbook">
+    <div class="section-headline">
+      <span class="section-pill-tag">На склонах</span>
+      <h2 class="section-title">Катание без компромиссов</h2>
+      <p class="section-desc">Посадка и стиль экипировки в реальных условиях гор</p>
+    </div>
+
+    <div class="lookbook-grid">
+      <div class="lookbook-card">
+        <img src="assets/hero-action.jpg" alt="Freeride in Dune Shadow" />
+        <div class="lookbook-caption">
+          <div>
+            <h4>Dune & Shadow на закате</h4>
+            <p>Шерегеш, Сектор E • Свежий паудер</p>
+          </div>
+          <span class="lookbook-tag">Бежево-Черный</span>
+        </div>
+      </div>
+
+      <div class="lookbook-card">
+        <img src="assets/rider-white.jpg" alt="Carving in Arctic White" />
+        <div class="lookbook-caption">
+          <div>
+            <h4>Arctic White на вершине</h4>
+            <p>Красная Поляна • Карвинг и целина</p>
+          </div>
+          <span class="lookbook-tag">Белый Pearl</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Reviews -->
+  <section class="reviews-section" id="reviews">
+    <div class="section-headline">
+      <span class="section-pill-tag">Отзывы райдеров</span>
+      <h2 class="section-title">Проверено склонами РФ</h2>
+      <p class="section-desc">Реальные впечатления лыжников и сноубордистов</p>
+    </div>
+
+    <div class="reviews-grid">
+      <div class="review-card">
+        <div>
+          <div class="review-header">
+            <div class="reviewer-meta">
+              <h5>Артём «Powder» Смирнов</h5>
+              <div class="reviewer-stats">Рост 183 см • Вес 79 кг • Размер L</div>
+            </div>
+            <span class="verified-badge">✓ Купил на сайте</span>
+          </div>
+          <div class="stars" style="margin-bottom:10px;">★★★★★</div>
+          <p class="review-body">
+            «Катаю в бежево-черном полукомбезе уже 3 недели в Геше. Цвет просто пушка — песок на снегу выглядит ультрастильно! Вставки кордуры на коленях спасли штаны от кантов уже раз пять. Не продувает на креселках вообще.»
+          </p>
+        </div>
+        <div class="review-footer">
+          <span>Шерегеш, Сноуборд</span>
+          <span>5 дней назад</span>
+        </div>
+      </div>
+
+      <div class="review-card">
+        <div>
+          <div class="review-header">
+            <div class="reviewer-meta">
+              <h5>Дмитрий Воронов</h5>
+              <div class="reviewer-stats">Рост 177 см • Вес 73 кг • Размер M</div>
+            </div>
+            <span class="verified-badge">✓ Купил на сайте</span>
+          </div>
+          <div class="stars" style="margin-bottom:10px;">★★★★★</div>
+          <p class="review-body">
+            «Взял белый комплект. Боялся, что будет пачкаться на подъемниках, но тефлоновая пропитка реально работает — снежная жижа и грязь просто стираются салфеткой! Крой свободный, защита под штанами сидит идеально.»
+          </p>
+        </div>
+        <div class="review-footer">
+          <span>Красная Поляна, Фрирайд</span>
+          <span>1 неделю назад</span>
+        </div>
+      </div>
+
+      <div class="review-card">
+        <div>
+          <div class="review-header">
+            <div class="reviewer-meta">
+              <h5>Кирилл Нестеров</h5>
+              <div class="reviewer-stats">Рост 189 см • Вес 88 кг • Размер XL</div>
+            </div>
+            <span class="verified-badge">✓ Купил на сайте</span>
+          </div>
+          <div class="stars" style="margin-bottom:10px;">★★★★★</div>
+          <p class="review-body">
+            «Отдельный респект за доставку с примеркой. Привезли L и XL, спокойно померил дома с ботинками и выбрал XL для правильного baggy-эффекта. Качество швов и молний на уровне топовых скандинавских брендов.»
+          </p>
+        </div>
+        <div class="review-footer">
+          <span>Эльбрус, Горные лыжи</span>
+          <span>2 недели назад</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq-section" id="faq">
+    <div class="section-headline">
+      <span class="section-pill-tag">Вопрос / Ответ</span>
+      <h2 class="section-title">Частые вопросы</h2>
+    </div>
+
+    <div class="faq-list">
+      <div class="faq-item active">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          <span>Как работает примерка 2-х размеров?</span>
+          <span class="faq-toggle-icon">+</span>
+        </div>
+        <div class="faq-answer">
+          При оформлении заказа мы отправляем вам два соседних размера (например, M и L). Курьер ждет 15 минут, пока вы комфортно примерите штаны дома. Вы оплачиваете только подошедший размер, а неподошедший курьер забирает обратно бесплатно.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          <span>Как стирать и ухаживать за 3L мембраной?</span>
+          <span class="faq-toggle-icon">+</span>
+        </div>
+        <div class="faq-answer">
+          Стирать при температуре 30°C на деликатном режиме со специальным жидким средством для мембран (без кондиционеров и отбеливателей). Сушить при комнатной температуре.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          <span>Есть ли карманы для телефона и скипасса?</span>
+          <span class="faq-toggle-icon">+</span>
+        </div>
+        <div class="faq-answer">
+          Да, нагрудный карман полукомбинезона оснащен специальным петлевым креплением и термоподкладкой, предотвращающей быструю разрядку аккумулятора смартфона на морозе.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          <span>Какая гарантия на экипировку?</span>
+          <span class="faq-toggle-icon">+</span>
+        </div>
+        <div class="faq-answer">
+          Мы предоставляем расширенную гарантию 2 года на заводской брак, молнии YKK AquaGuard, фурнитуру и герметичность проклеенных швов.
+        </div>
+      </div>
+    </div>
+  </section>
+  <!-- Cart Drawer -->
+  <div class="cart-drawer-overlay" id="cartOverlay" onclick="closeCartDrawer()"></div>
+  <div class="cart-drawer" id="cartDrawer">
+    <div class="cart-header">
+      <h3>Корзина покупок</h3>
+      <button class="drawer-close-btn" onclick="closeCartDrawer()">✕</button>
+    </div>
+
+    <div class="cart-free-shipping-bar">
+      <span>🎉 Вам доступна <strong>бесплатная курьерская доставка</strong> и примерка!</span>
+    </div>
+
+    <div class="cart-items-container" id="cartItemsContainer"></div>
+
+    <div class="cart-footer">
+      <div class="cart-promo-row">
+        <input type="text" class="cart-promo-input" id="cartPromoInput" placeholder="Промокод (COULAIR10)" />
+        <button class="cart-promo-btn" onclick="applyPromoCode()">Применить</button>
+      </div>
+
+      <div class="cart-summary-line">
+        <span>Сумма заказа:</span>
+        <span id="cartSubtotal">21 900 ₽</span>
+      </div>
+      <div class="cart-summary-line" id="cartDiscountRow" style="display:none; color:var(--accent-lime);">
+        <span>Скидка по промокоду:</span>
+        <span id="cartDiscountAmount">-2 190 ₽</span>
+      </div>
+      <div class="cart-summary-line">
+        <span>Доставка по РФ:</span>
+        <span style="color:#22c55e;">Бесплатно</span>
+      </div>
+
+      <div class="cart-total-line">
+        <span>Итого:</span>
+        <span id="cartFinalTotal">21 900 ₽</span>
+      </div>
+
+      <button class="cart-checkout-btn" onclick="openOrderModal('cart')">
+        Перейти к оформлению
+      </button>
+    </div>
+  </div>
+
+  <!-- Order Modal -->
+  <div class="modal-backdrop" id="orderModal" onclick="closeOrderModal(event)">
+    <div class="modal-window" onclick="event.stopPropagation()">
+      <button class="modal-close-icon" onclick="closeOrderModal(event)">✕</button>
+
+      <div id="modalOrderFormView">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+          <div style="width:110px; height:36px; overflow:hidden;">
+            <img src="assets/logo.jpg" alt="COULAIR" style="height:55px; mix-blend-mode:screen; filter:invert(1) brightness(1.3); transform:translateY(-2px);" />
+          </div>
+          <span style="background:var(--accent-beige); color:#090B0E; font-size:0.7rem; font-weight:800; padding:2px 7px; border-radius:4px;">ЭКСПРЕСС-ЗАКАЗ</span>
+        </div>
+
+        <h3 style="font-family:var(--font-display); font-size:1.5rem; margin-bottom:4px;" id="modalOrderTitle">Оформление с примеркой</h3>
+        <p style="font-size:0.85rem; color:var(--text-muted);">
+          Привезем 2 смежных размера. Оплата курьеру после примерки (картой или наличными).
         </p>
 
-        <div class="order-summary-box">
-          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-            <span style="color:var(--text-muted);">Товар:</span>
-            <strong>ALPEX Pro Ride</strong>
+        <div class="order-review-box">
+          <div class="order-review-row">
+            <span>Товар:</span>
+            <strong id="modalItemTitle">COULAIR Pro 3L Bib Pants</strong>
           </div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-            <span style="color:var(--text-muted);">Цвет:</span>
-            <strong id="summaryColor">Бежево-Черный</strong>
+          <div class="order-review-row">
+            <span>Цвет:</span>
+            <strong id="modalItemColor">Бежево-Черный (Dune & Shadow)</strong>
           </div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-            <span style="color:var(--text-muted);">Размер:</span>
-            <strong id="summarySize">M / 48</strong>
+          <div class="order-review-row">
+            <span>Размер:</span>
+            <strong id="modalItemSize">M (48-50)</strong>
           </div>
-          <div style="display:flex; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.08); padding-top:6px; margin-top:6px;">
-            <span>К оплате:</span>
-            <strong style="color:var(--accent-beige); font-size:1.15rem;">21 490 ₽</strong>
+          <div class="order-review-row" style="border-top:1px solid rgba(255,255,255,0.08); padding-top:8px; margin-top:8px;">
+            <span>К оплате при получении:</span>
+            <strong style="color:var(--accent-beige); font-size:1.25rem; font-family:var(--font-display);" id="modalItemPrice">21 900 ₽</strong>
           </div>
         </div>
 
-        <form id="orderForm" onsubmit="handleFormSubmit(event)">
-          <div class="form-group">
+        <form id="checkoutForm" onsubmit="submitCheckout(event)">
+          <div class="form-field">
             <label>Ваше имя</label>
-            <input type="text" id="custName" placeholder="Иван" required />
+            <input type="text" id="orderCustName" placeholder="Артём" required />
           </div>
-          <div class="form-group">
-            <label>Телефон</label>
-            <input type="tel" id="custPhone" placeholder="+7 (999) 000-00-00" required />
+
+          <div class="form-field">
+            <label>Номер телефона</label>
+            <input type="tel" id="orderCustPhone" placeholder="+7 (999) 000-00-00" required />
           </div>
-          <div class="form-group">
-            <label>Город доставки</label>
-            <input type="text" id="custCity" placeholder="Москва, Красная Поляна, СПб..." required />
+
+          <div class="form-field">
+            <label>Город и адрес доставки</label>
+            <input type="text" id="orderCustCity" placeholder="Москва, ул. Ленина, д. 10, кв. 5" required />
           </div>
-          <button type="submit" class="submit-order-btn">Заказать с примеркой</button>
+
+          <div style="margin-bottom:12px;">
+            <label style="display:block; font-size:0.78rem; font-weight:700; color:var(--text-muted); margin-bottom:6px; text-transform:uppercase;">
+              Способ оплаты
+            </label>
+            <div class="delivery-options-grid">
+              <div class="delivery-radio-card active" onclick="selectPayMethod(this)">
+                <strong>При получении</strong>
+                <span>После примерки</span>
+              </div>
+              <div class="delivery-radio-card" onclick="selectPayMethod(this)">
+                <strong>Долями / Сплит</strong>
+                <span>4 платежа без переплат</span>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="order-submit-btn">
+            Подтвердить заказ
+          </button>
         </form>
       </div>
 
-      <div class="success-screen" id="modalSuccessContent">
-        <div class="success-icon">✓</div>
-        <h2 style="font-family:'Space Grotesk'; font-size:1.5rem; margin-bottom:8px;">Заказ принят!</h2>
-        <p style="color:var(--text-muted); font-size:0.92rem; margin-bottom:20px;">
-          Спасибо за заявку! Мы свяжемся с вами в течение 10 минут для согласования доставки.
+      <div class="order-success-screen" id="modalSuccessView">
+        <div class="success-badge-icon">✓</div>
+        <h3 style="font-family:var(--font-display); font-size:1.7rem; margin-bottom:8px;">Заказ успешно оформлен!</h3>
+        <p style="font-size:0.92rem; color:var(--text-muted); margin-bottom:18px; line-height:1.6;">
+          Номер заказа: <strong style="color:#fff;" id="generatedOrderNum">#CC-8429</strong><br/>
+          Мы забронировали для вас 2 размера. Консультант свяжется с вами по телефону в течение 10 минут для согласования доставки.
         </p>
-        <button class="submit-order-btn" onclick="closeOrderModal(event)">Отлично</button>
+        <button class="order-submit-btn" onclick="closeOrderModal(event)">Вернуться на сайт</button>
       </div>
     </div>
   </div>
 
+  <!-- Sticky Mobile Bar -->
+  <div class="sticky-mobile-bar">
+    <div>
+      <div class="mobile-bar-price">21 900 ₽</div>
+      <div class="mobile-bar-meta" id="mobileSelectedMeta">Беж/Черный • M</div>
+    </div>
+    <button class="mobile-bar-cta" onclick="openOrderModal('single')">
+      Быстрый заказ
+    </button>
+  </div>
+
+  <!-- Footer -->
   <footer>
-    <p>© 2026 ALPEX Ski Gear. Премиальная экипировка для горных лыж и сноуборда.</p>
-    <p style="margin-top:6px; font-size:0.82rem; opacity:0.7;">Бежево-черный и белый цвета в наличии.</p>
+    <div class="footer-container">
+      <div class="footer-about">
+        <div style="width:170px; height:50px; overflow:hidden;">
+          <img src="assets/logo.jpg" alt="COULAIR CLUB" style="height:70px; mix-blend-mode:screen; filter:invert(1) brightness(1.3); transform:translateY(-2px);" />
+        </div>
+        <p>
+          Независимый бренд экипировки нового поколения для сноубординга и фрирайда. Создано райдерами для суровых условий гор.
+        </p>
+        <div style="color:var(--text-muted); font-size:0.85rem;">
+          📍 Шоурумы: Красная Поляна • Москва • Шерегеш
+        </div>
+      </div>
+
+      <div class="footer-col">
+        <h5>Коллекция</h5>
+        <ul>
+          <li><a href="#pdp">Штаны 3L Bib</a></li>
+          <li><a href="#bundle">Полный комплект</a></li>
+          <li><a href="#tech">Мембрана 25К</a></li>
+          <li><a href="#lookbook">Лукбук 26/27</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h5>Сервис</h5>
+        <ul>
+          <li><a href="javascript:void(0)" onclick="openOrderModal('single')">Примерка перед оплатой</a></li>
+          <li><a href="#faq">Таблица размеров</a></li>
+          <li><a href="#faq">Гарантия 2 года</a></li>
+          <li><a href="#faq">Уход за мембраной</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h5>Контакты</h5>
+        <ul>
+          <li><a href="tel:+78005553535">+7 (800) 555-COULAIR</a></li>
+          <li><a href="mailto:club@coulair.com">club@coulair.com</a></li>
+          <li><a href="https://t.me/" target="_blank">Telegram: @coulair_club</a></li>
+          <li><a href="#reviews">Отзывы комьюнити</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>© 2026 COULAIR CLUB. Все права защищены.</span>
+      <span>Сайт разработан для комьюнити фрирайда.</span>
+    </div>
   </footer>
 
+  <!-- Interactive Scripts -->
   <script>
-    let currentColor = 'beige-black';
-    let currentSize = 'M';
+    let state = {
+      currentColor: "beige-black",
+      currentSize: "M",
+      sizeEu: "48-50",
+      cart: [
+        {
+          id: "pants-1",
+          name: "COULAIR Pro 3L Freeride Bib",
+          color: "Бежево-Черный (Dune & Shadow)",
+          size: "M (48-50)",
+          price: 21900,
+          img: "assets/pants-beige-black.jpg"
+        }
+      ],
+      promoApplied: false,
+      discountPercent: 0
+    };
 
-    function selectColor(color) {
-      currentColor = color;
+    function switchMainImage(src, btnElement) {
+      const img = document.getElementById("mainProductImg");
+      img.style.opacity = "0.3";
+      setTimeout(() => {
+        img.src = src;
+        img.style.opacity = "1";
+      }, 120);
 
-      const btnBeigeBlack = document.getElementById('btnColorBeigeBlack');
-      const btnWhite = document.getElementById('btnColorWhite');
-      const heroColorName = document.getElementById('heroColorName');
-      const colorTextLabel = document.getElementById('colorTextLabel');
-      const activeColorTag = document.getElementById('activeColorTag');
-      const summaryColor = document.getElementById('summaryColor');
+      document.querySelectorAll(".thumb-btn").forEach(b => b.classList.remove("active"));
+      if (btnElement) btnElement.classList.add("active");
+    }
 
-      const leftLegUpper = document.getElementById('leftLegUpper');
-      const rightLegUpper = document.getElementById('rightLegUpper');
-      const leftLegLower = document.getElementById('leftLegLower');
-      const rightLegLower = document.getElementById('rightLegLower');
-      const waistBand = document.getElementById('waistBand');
+    function selectColorway(color) {
+      state.currentColor = color;
+      const cardBeige = document.getElementById("colorCardBeige");
+      const cardWhite = document.getElementById("colorCardWhite");
+      const label = document.getElementById("currentColorLabel");
+      const mainImg = document.getElementById("mainProductImg");
+      const thumbs = document.querySelectorAll(".thumb-btn");
 
-      if (color === 'beige-black') {
-        btnBeigeBlack.classList.add('active');
-        btnWhite.classList.remove('active');
-
-        heroColorName.textContent = 'Бежево-Черный';
-        heroColorName.className = 'beige-text';
-        colorTextLabel.textContent = 'Бежево-Черный';
-        activeColorTag.textContent = 'Бежево-Черный (Dune Shadow)';
-        summaryColor.textContent = 'Бежево-Черный';
-
-        leftLegUpper.setAttribute('fill', 'url(#gradBeige)');
-        rightLegUpper.setAttribute('fill', 'url(#gradBeige)');
-        leftLegLower.setAttribute('fill', 'url(#gradBlack)');
-        rightLegLower.setAttribute('fill', 'url(#gradBlack)');
-        waistBand.setAttribute('fill', '#1b1f26');
+      if (color === "beige-black") {
+        cardBeige.classList.add("active");
+        cardWhite.classList.remove("active");
+        label.textContent = "Бежево-Черный (Dune & Shadow)";
+        mainImg.src = "assets/pants-beige-black.jpg";
+        thumbs[0].classList.add("active");
+        thumbs[1].classList.remove("active");
+        state.cart[0].color = "Бежево-Черный (Dune & Shadow)";
+        state.cart[0].img = "assets/pants-beige-black.jpg";
       } else {
-        btnWhite.classList.add('active');
-        btnBeigeBlack.classList.remove('active');
+        cardWhite.classList.add("active");
+        cardBeige.classList.remove("active");
+        label.textContent = "Белый (Arctic Snow Pearl)";
+        mainImg.src = "assets/pants-white.jpg";
+        thumbs[1].classList.add("active");
+        thumbs[0].classList.remove("active");
+        state.cart[0].color = "Белый (Arctic Snow Pearl)";
+        state.cart[0].img = "assets/pants-white.jpg";
+      }
+      updateMobileBar();
+      renderCart();
+    }
 
-        heroColorName.textContent = 'Белый';
-        heroColorName.className = 'white-text';
-        colorTextLabel.textContent = 'Белый (Snow Pearl)';
-        activeColorTag.textContent = 'Белый (Arctic Snow Pearl)';
-        summaryColor.textContent = 'Белый';
+    function selectSize(btn, size, eu, heightHint) {
+      document.querySelectorAll(".size-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.currentSize = size;
+      state.sizeEu = eu;
+      document.getElementById("currentSizeLabel").textContent = size + " — " + eu + " (Рост " + heightHint + ")";
+      state.cart[0].size = size + " (" + eu + ")";
+      updateMobileBar();
+      renderCart();
+    }
 
-        leftLegUpper.setAttribute('fill', 'url(#gradWhite)');
-        rightLegUpper.setAttribute('fill', 'url(#gradWhite)');
-        leftLegLower.setAttribute('fill', 'url(#gradWhite)');
-        rightLegLower.setAttribute('fill', 'url(#gradWhite)');
-        waistBand.setAttribute('fill', '#334155');
+    function toggleSizeCalc() {
+      const box = document.getElementById("sizeCalculatorBox");
+      box.classList.toggle("open");
+    }
+
+    function calculateRecommendedSize() {
+      const h = parseInt(document.getElementById("calcHeight").value) || 178;
+      const w = parseInt(document.getElementById("calcWeight").value) || 75;
+      let rec = "M";
+      let eu = "48-50";
+
+      if (h < 172 && w < 70) {
+        rec = "S"; eu = "46-48";
+      } else if (h <= 180 && w <= 80) {
+        rec = "M"; eu = "48-50";
+      } else if (h <= 187 && w <= 90) {
+        rec = "L"; eu = "50-52";
+      } else if (h <= 195 || w <= 100) {
+        rec = "XL"; eu = "52-54";
+      } else {
+        rec = "XXL"; eu = "54-56";
+      }
+
+      document.getElementById("calcResultText").innerHTML = 
+        "Для роста " + h + " см и веса " + w + " кг рекомендуем размер <strong>" + rec + " (" + eu + ")</strong>.";
+
+      document.querySelectorAll(".size-btn").forEach(b => {
+        if (b.querySelector(".size-name").textContent.trim() === rec) {
+          b.click();
+        }
+      });
+    }
+
+    function updateMobileBar() {
+      const el = document.getElementById("mobileSelectedMeta");
+      const cName = state.currentColor === "beige-black" ? "Беж/Черный" : "Белый Pearl";
+      el.textContent = cName + " • Размер " + state.currentSize;
+    }
+
+    function toggleBundleItem(row, price, isMandatory) {
+      if (isMandatory) return;
+      row.classList.toggle("checked");
+      const checkMark = row.querySelector(".custom-check");
+      checkMark.textContent = row.classList.contains("checked") ? "✓" : "";
+      calculateBundleTotal();
+    }
+
+    function calculateBundleTotal() {
+      let rawSum = 21900;
+      if (document.getElementById("bundleAnorak").classList.contains("checked")) rawSum += 24900;
+      if (document.getElementById("bundleMittens").classList.contains("checked")) rawSum += 5900;
+      if (document.getElementById("bundleGoggles").classList.contains("checked")) rawSum += 7900;
+      if (document.getElementById("bundleBelt").classList.contains("checked")) rawSum += 2400;
+
+      const discounted = Math.round(rawSum * 0.8);
+      document.getElementById("bundleOldPrice").textContent = rawSum.toLocaleString("ru-RU") + " ₽";
+      document.getElementById("bundleFinalPrice").textContent = discounted.toLocaleString("ru-RU") + " ₽";
+    }
+
+    function openCartDrawer() {
+      renderCart();
+      document.getElementById("cartOverlay").classList.add("open");
+      document.getElementById("cartDrawer").classList.add("open");
+    }
+
+    function closeCartDrawer() {
+      document.getElementById("cartOverlay").classList.remove("open");
+      document.getElementById("cartDrawer").classList.remove("open");
+    }
+
+    function addToCartAndOpen() {
+      openCartDrawer();
+    }
+
+    function renderCart() {
+      const container = document.getElementById("cartItemsContainer");
+      const countBadge = document.getElementById("headerCartCount");
+      countBadge.textContent = state.cart.length;
+
+      if (state.cart.length === 0) {
+        container.innerHTML = "<div style="text-align:center; padding:50px 0; color:var(--text-muted);"><div style="font-size:3rem; margin-bottom:12px;">🎿</div><p>Ваша корзина пуста</p></div>";
+        document.getElementById("cartSubtotal").textContent = "0 ₽";
+        document.getElementById("cartFinalTotal").textContent = "0 ₽";
+        return;
+      }
+
+      let subtotal = 0;
+      let html = "";
+      for (let idx = 0; idx < state.cart.length; idx++) {
+        const item = state.cart[idx];
+        subtotal += item.price;
+        html += "<div class="cart-item-card">" +
+          "<img src="" + item.img + "" class="cart-item-thumb" alt="" + item.name + "" />" +
+          "<div class="cart-item-details">" +
+            "<h4>" + item.name + "</h4>" +
+            "<div class="cart-item-meta">" + item.color + " • " + item.size + "</div>" +
+            "<div class="cart-item-bottom">" +
+              "<span class="cart-item-price">" + item.price.toLocaleString("ru-RU") + " ₽</span>" +
+              "<button class="cart-item-remove" onclick="removeCartItem(" + idx + ")">Удалить</button>" +
+            "</div>" +
+          "</div>" +
+        "</div>";
+      }
+      container.innerHTML = html;
+
+      let discount = 0;
+      if (state.promoApplied) {
+        discount = Math.round(subtotal * (state.discountPercent / 100));
+        document.getElementById("cartDiscountRow").style.display = "flex";
+        document.getElementById("cartDiscountAmount").textContent = "-" + discount.toLocaleString("ru-RU") + " ₽";
+      } else {
+        document.getElementById("cartDiscountRow").style.display = "none";
+      }
+
+      const finalTotal = subtotal - discount;
+      document.getElementById("cartSubtotal").textContent = subtotal.toLocaleString("ru-RU") + " ₽";
+      document.getElementById("cartFinalTotal").textContent = finalTotal.toLocaleString("ru-RU") + " ₽";
+    }
+
+    function removeCartItem(idx) {
+      state.cart.splice(idx, 1);
+      renderCart();
+    }
+
+    function applyPromoCode() {
+      const input = document.getElementById("cartPromoInput");
+      const val = input.value.trim().toUpperCase();
+      if (val === "COULAIR10" || val === "RIDER10" || val === "POWDER") {
+        state.promoApplied = true;
+        state.discountPercent = 10;
+        alert("🎉 Промокод применен! Скидка 10% на ваш заказ.");
+        renderCart();
+      } else {
+        alert("Неверный промокод. Попробуйте COULAIR10");
       }
     }
 
-    function selectSize(btn, size) {
-      document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentSize = size;
-      const sizeLabels = {'S': 'S / 46', 'M': 'M / 48', 'L': 'L / 50', 'XL': 'XL / 52'};
-      document.getElementById('summarySize').textContent = sizeLabels[size] || size;
-    }
+    function openOrderModal(source) {
+      closeCartDrawer();
+      const modal = document.getElementById("orderModal");
+      document.getElementById("modalOrderFormView").style.display = "block";
+      document.getElementById("modalSuccessView").style.display = "none";
 
-    function openOrderModal() {
-      document.getElementById('orderModal').classList.add('active');
-      document.getElementById('modalFormContent').style.display = 'block';
-      document.getElementById('modalSuccessContent').style.display = 'none';
+      const itemTitle = document.getElementById("modalItemTitle");
+      const itemColor = document.getElementById("modalItemColor");
+      const itemSize = document.getElementById("modalItemSize");
+      const itemPrice = document.getElementById("modalItemPrice");
+
+      if (source === "bundle") {
+        itemTitle.textContent = "Полный комплект COULAIR (Штаны + Анорак + Варежки)";
+        itemColor.textContent = state.currentColor === "beige-black" ? "Dune / Shadow Black" : "Arctic White";
+        itemSize.textContent = "Размер: " + state.currentSize + " (" + state.sizeEu + ")";
+        itemPrice.textContent = document.getElementById("bundleFinalPrice").textContent;
+      } else {
+        itemTitle.textContent = "COULAIR Pro 3L Freeride Bib Pants";
+        itemColor.textContent = state.currentColor === "beige-black" ? "Бежево-Черный (Dune & Shadow)" : "Белый (Arctic Snow Pearl)";
+        itemSize.textContent = state.currentSize + " (" + state.sizeEu + ") + смежный размер для примерки";
+        itemPrice.textContent = "21 900 ₽";
+      }
+
+      modal.classList.add("open");
     }
 
     function closeOrderModal(e) {
-      document.getElementById('orderModal').classList.remove('active');
+      document.getElementById("orderModal").classList.remove("open");
     }
 
-    function handleFormSubmit(e) {
-      e.preventDefault();
-      document.getElementById('modalFormContent').style.display = 'none';
-      document.getElementById('modalSuccessContent').style.display = 'block';
+    function selectPayMethod(card) {
+      document.querySelectorAll(".delivery-radio-card").forEach(c => c.classList.remove("active"));
+      card.classList.add("active");
     }
+
+    function submitCheckout(e) {
+      e.preventDefault();
+      const randNum = "#CC-" + Math.floor(1000 + Math.random() * 9000);
+      document.getElementById("generatedOrderNum").textContent = randNum;
+      document.getElementById("modalOrderFormView").style.display = "none";
+      document.getElementById("modalSuccessView").style.display = "block";
+    }
+
+    function toggleFaq(btn) {
+      const parent = btn.closest(".faq-item");
+      parent.classList.toggle("active");
+    }
+
+    setInterval(() => {
+      const el = document.getElementById("liveWatchersCount");
+      if (el) {
+        const count = Math.floor(7 + Math.random() * 8);
+        el.textContent = count + " человек";
+      }
+    }, 7000);
+
+    calculateBundleTotal();
+    updateMobileBar();
   </script>
 </body>
 </html>
