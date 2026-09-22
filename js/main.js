@@ -565,49 +565,151 @@ function initSocials() {
 /* =====================================================================
    Снег в футере
    ===================================================================== */
+/* ---------- спрайты снежинок (рисуются один раз) ---------- */
+function makeSprite(size, paint) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  paint(c.getContext('2d'), size);
+  return c;
+}
+// мягкий пушистый комок — так выглядит большинство снежинок в полёте
+const softFlake = makeSprite(64, (g, s) => {
+  const r = s / 2, grad = g.createRadialGradient(r, r, 0, r, r, r);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.35, 'rgba(255,255,255,.85)');
+  grad.addColorStop(0.7, 'rgba(240,246,255,.25)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, s, s);
+});
+// расфокусированное хлопье прямо перед «камерой»
+const bokehFlake = makeSprite(64, (g, s) => {
+  const r = s / 2, grad = g.createRadialGradient(r, r, 0, r, r, r);
+  grad.addColorStop(0, 'rgba(255,255,255,.55)');
+  grad.addColorStop(0.6, 'rgba(235,242,255,.35)');
+  grad.addColorStop(0.85, 'rgba(255,255,255,.12)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, s, s);
+});
+// шестилучевой кристалл с веточками
+function crystalSprite(seed) {
+  return makeSprite(96, (g, s) => {
+    const r = s / 2;
+    g.translate(r, r);
+    g.strokeStyle = 'rgba(255,255,255,.95)';
+    g.lineCap = 'round';
+    g.shadowColor = 'rgba(200,225,255,.9)';
+    g.shadowBlur = 4;
+    const arm = r * 0.8, branches = 2 + (seed % 2);
+    for (let k = 0; k < 6; k++) {
+      g.save();
+      g.rotate(k * Math.PI / 3);
+      g.lineWidth = 2.6;
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -arm); g.stroke();
+      g.lineWidth = 1.8;
+      for (let j = 1; j <= branches; j++) {
+        const y = -arm * (0.3 + j * 0.55 / branches);
+        const len = arm * (0.34 - j * 0.07) * (seed % 3 === 0 ? 1.2 : 1);
+        g.beginPath();
+        g.moveTo(0, y); g.lineTo(-len * 0.8, y - len * 0.6);
+        g.moveTo(0, y); g.lineTo(len * 0.8, y - len * 0.6);
+        g.stroke();
+      }
+      g.restore();
+    }
+    g.fillStyle = '#fff';
+    g.beginPath(); g.arc(0, 0, 3, 0, Math.PI * 2); g.fill();
+  });
+}
+const crystals = [0, 1, 2, 3].map(crystalSprite);
+
 function startSnow(canvas, area, density = 1) {
   const ctx = canvas.getContext('2d');
-  let flakes = [], w = 0, h = 0, running = false, raf = 0;
+  let flakes = [], w = 0, h = 0, running = false, raf = 0, last = 0, time = 0;
 
+  // z — глубина: 0 далеко (мелкие, медленные, тусклые), 1 у самой «камеры»
   const makeFlake = anywhere => {
-    const r = Math.random() * 2.4 + 0.6;
-    return {
-      x: Math.random() * w, y: anywhere ? Math.random() * h : -5,
-      r, speed: 0.25 + r * 0.32, sway: Math.random() * Math.PI * 2,
-      swaySpeed: 0.004 + Math.random() * 0.01, alpha: 0.35 + Math.random() * 0.6,
+    const z = Math.pow(Math.random(), 1.6);   // дальних больше, чем ближних
+    const f = {
+      z,
+      x: Math.random() * (w + 200) - 100,
+      y: anywhere ? Math.random() * h : -20 - Math.random() * 40,
+      sway: Math.random() * Math.PI * 2,
+      swaySpeed: 0.6 + Math.random() * 1.2,
+      swayAmp: 6 + z * 22,
+      rot: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 1.4,
+      flutter: Math.random() * Math.PI * 2,
     };
+    if (z > 0.94) {                                   // крупное размытое хлопье
+      f.sprite = bokehFlake; f.size = 18 + Math.random() * 22;
+      f.alpha = 0.18 + Math.random() * 0.2; f.speed = 70 + Math.random() * 40;
+    } else if (z > 0.6 && Math.random() < 0.35) {    // кристалл на ближнем плане
+      f.sprite = crystals[(Math.random() * crystals.length) | 0];
+      f.size = 12 + z * 16; f.alpha = 0.75 + Math.random() * 0.25;
+      f.speed = 38 + z * 40; f.crystal = true;
+    } else {                                          // обычные мягкие хлопья
+      f.sprite = softFlake; f.size = 2.5 + z * z * 12;
+      f.alpha = 0.3 + z * 0.65; f.speed = 16 + z * 60 + Math.random() * 10;
+    }
+    return f;
   };
+
   const resize = () => {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     w = canvas.clientWidth; h = canvas.clientHeight;
     canvas.width = w * dpr; canvas.height = h * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const count = Math.round(Math.min(220, w * h / 5000) * density);
+    const count = Math.round(Math.min(320, w * h / 3800) * density);
     flakes = Array.from({ length: count }, () => makeFlake(true));
   };
-  const draw = () => {
+
+  const draw = dt => {
+    time += dt;
+    // ветер: медленная смена направления + редкие порывы
+    const wind = Math.sin(time * 0.13) * 18 + Math.sin(time * 0.37 + 1.3) * 10
+               + Math.max(0, Math.sin(time * 0.05)) ** 8 * 55;
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = '#fff';
     for (const f of flakes) {
-      f.y += f.speed;
-      f.sway += f.swaySpeed;
-      f.x += Math.sin(f.sway) * 0.4;
-      if (f.y > h + 5) Object.assign(f, makeFlake(false));
+      f.sway += f.swaySpeed * dt;
+      f.y += f.speed * dt;
+      f.x += (wind * (0.35 + f.z) + Math.cos(f.sway) * f.swayAmp * 0.9) * dt;
+      if (f.y > h + 30 || f.x < -120 || f.x > w + 120) {
+        Object.assign(f, makeFlake(false));
+        f.x = Math.random() * (w + 160) - 80 - wind * 2;   // при ветре подсыпаем с наветренной стороны
+        continue;
+      }
       ctx.globalAlpha = f.alpha;
-      ctx.beginPath();
-      ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-      ctx.fill();
+      const s = f.size;
+      if (f.crystal) {
+        f.rot += f.rotSpeed * dt;
+        f.flutter += dt * 2.2;
+        ctx.save();
+        ctx.translate(f.x, f.y);
+        ctx.rotate(f.rot);
+        ctx.scale(1, 0.55 + 0.45 * Math.abs(Math.cos(f.flutter)));   // кувыркается в полёте
+        ctx.drawImage(f.sprite, -s / 2, -s / 2, s, s);
+        ctx.restore();
+      } else {
+        ctx.drawImage(f.sprite, f.x - s / 2, f.y - s / 2, s, s);
+      }
     }
+    ctx.globalAlpha = 1;
   };
-  const loop = () => { draw(); raf = requestAnimationFrame(loop); };
+
+  const loop = t => {
+    const dt = last ? Math.min((t - last) / 1000, 0.05) : 0.016;
+    last = t;
+    draw(dt);
+    raf = requestAnimationFrame(loop);
+  };
 
   resize();
   window.addEventListener('resize', resize);
-  if (reducedMotion) { draw(); return; }
+  if (reducedMotion) { draw(0); return; }
 
   // крутим анимацию, только когда блок на экране
   new IntersectionObserver(([entry]) => {
-    if (entry.isIntersecting && !running) { running = true; loop(); }
+    if (entry.isIntersecting && !running) { running = true; last = 0; raf = requestAnimationFrame(loop); }
     else if (!entry.isIntersecting && running) { running = false; cancelAnimationFrame(raf); }
   }).observe(area);
 }
