@@ -13,7 +13,7 @@ const CONFIG = {
     { id: 'instagram', label: 'Instagram', url: '' },
   ],
 
-  // Видео на первом экране: играет один раз, после окончания появляется матовый блок.
+  // Видео на первом экране: после первого проигрывания появляется матовый блок, дальше видео крутится по кругу.
   // На узких экранах берётся облегчённая 720p-версия.
   heroVideo: { desktop: 'assets/hero.mp4', mobile: 'assets/hero-720.mp4' },
 
@@ -24,17 +24,14 @@ const CONFIG = {
   pants: {
     id: 'pants', type: 'pants', name: 'Широкие горнолыжные штаны',
     price: 7999, oldPrice: 10000, sizes: ['M', 'L', 'XL'],
-    image: 'assets/pants360/001.jpg',
+    image: 'assets/pants360/001.jpg', url: './#pants', fit: 'contain',
   },
 
-  // Карточки. image: путь к фото (например 'assets/products/helmet-1.jpg'); null — заглушка
-  products: [
-    { id: 'helmet-1', type: 'helmet', name: 'Шлем Coulair Shell',     price: 8990,  oldPrice: null,  image: null },
-    { id: 'boots-1',  type: 'boots',  name: 'Ботинки Coulair Pro 110', price: 24990, oldPrice: 29990, image: null },
-    { id: 'helmet-2', type: 'helmet', name: 'Шлем Coulair MIPS',      price: 12990, oldPrice: null,  image: null },
-    { id: 'boots-2',  type: 'boots',  name: 'Ботинки Coulair All-Mountain 90', price: 18990, oldPrice: null, image: null },
-    { id: 'helmet-3', type: 'helmet', name: 'Шлем Coulair Park',      price: 6990,  oldPrice: 8490,  image: null },
-    { id: 'boots-3',  type: 'boots',  name: 'Ботинки Coulair Free 100', price: 21990, oldPrice: null, image: null },
+  // Товары каталога берутся из catalog/catalog.js (собирается: python3 tools/build_catalog.py).
+  // Карточки-анонсы «скоро» — показываются в конце ленты на главной.
+  teasers: [
+    { type: 'helmet', name: 'Новые шлемы', note: 'Скоро в наличии' },
+    { type: 'boots',  name: 'Горнолыжные ботинки', note: 'Скоро в наличии' },
   ],
 
   // Куда отправлять заявки. Пусто — заявка только показывается как «принята» (и пишется в консоль).
@@ -49,16 +46,18 @@ const PLACEHOLDERS = {
   boots:  'assets/products/boots-placeholder.svg',
   pants:  'assets/products/pants-placeholder.svg',
 };
-const CATALOG_TITLES = { all: 'Подобрано к сезону', helmet: 'Горнолыжные шлемы', boots: 'Горнолыжные ботинки' };
+const CATALOG_TITLES = { all: 'Подобрано к сезону', helmet: 'Горнолыжные шлемы', boots: 'Горнолыжные ботинки', pants: 'Горнолыжные штаны' };
+const TYPE_TABS = [['all', 'Всё'], ['helmet', 'Шлемы'], ['boots', 'Ботинки'], ['pants', 'Штаны']];
 
 /* ---------- утилиты ---------- */
 const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 const rub = n => n.toLocaleString('ru-RU') + ' ₽';
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const allProducts = () => [CONFIG.pants, ...CONFIG.products];
+const catalogItems = () => window.CATALOG || [];
+const allProducts = () => [CONFIG.pants, ...catalogItems()];
 const findProduct = id => allProducts().find(p => p.id === id);
-const imgOf = p => p.image || PLACEHOLDERS[p.type];
+const imgOf = p => (p.images && p.images[0]) || p.image || PLACEHOLDERS[p.type] || PLACEHOLDERS.helmet;
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const store = {
@@ -83,6 +82,21 @@ const ICONS = {
   plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
   check: '<svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
 };
+
+// На сайте «catalog/» открывает catalog/index.html сам, а при открытии файла с диска — нет
+function fixUrl(href) {
+  const u = new URL(href, document.baseURI);
+  if (u.protocol === 'file:' && u.pathname.endsWith('/')) u.pathname += 'index.html';
+  return u.href;
+}
+function fixLocalLinks(root = document) {
+  if (location.protocol !== 'file:') return;
+  $$('a[href]', root).forEach(a => {
+    const h = a.getAttribute('href');
+    if (!h || h.startsWith('#') && !document.querySelector('base') || /^(https?:|mailto:|tel:)/.test(h)) return;
+    a.href = fixUrl(h);
+  });
+}
 
 /* =====================================================================
    Бегущая строка
@@ -122,6 +136,7 @@ function initHeader() {
    ===================================================================== */
 function initHero() {
   const video = $('#heroVideo');
+  if (!video) return;
   const offer = $('#offer');
   let shown = false, fellBack = false;
   const showOffer = () => { if (!shown) { shown = true; offer.classList.add('is-visible'); } };
@@ -134,7 +149,13 @@ function initHero() {
     setTimeout(showOffer, 700);
   };
 
-  video.addEventListener('ended', showOffer);
+  // Первый раз проигрывается целиком → показываем спецпредложение, дальше видео идёт по кругу
+  video.addEventListener('ended', () => {
+    showOffer();
+    video.loop = true;
+    video.currentTime = 0;
+    video.play().catch(() => {});
+  }, { once: true });
   video.addEventListener('error', fallback);
   video.src = window.innerWidth < 900 ? CONFIG.heroVideo.mobile : CONFIG.heroVideo.desktop;
   const p = video.play();
@@ -149,6 +170,7 @@ function initHero() {
    ===================================================================== */
 function initViewer() {
   const viewer = $('#viewer');
+  if (!viewer) return;
   const img = $('#viewerFrame');
   const bar = $('#viewerProgress');
   const { path, count } = CONFIG.pants360;
@@ -220,6 +242,7 @@ function initViewer() {
 let selectedSize = null;
 function initSizes() {
   const wrap = $('.sizes');
+  if (!$('#orderPantsBtn')) return;
   $$('.size').forEach(btn => btn.addEventListener('click', () => {
     selectedSize = btn.dataset.size;
     $$('.size').forEach(b => b.setAttribute('aria-checked', String(b === btn)));
@@ -241,33 +264,65 @@ function initSizes() {
    Каталог (карточки)
    ===================================================================== */
 let currentFilter = 'all';
+
+function cardHtml(p) {
+  const inCart = cart.some(i => i.id === p.id);
+  const photo = !!(p.images && p.images.length);
+  const img2 = photo && p.images[1] ? `<img class="card__img2" src="${p.images[1]}" alt="" loading="lazy">` : '';
+  const sale = p.oldPrice ? `<span class="card__sale">−${Math.round((1 - p.price / p.oldPrice) * 100)}%</span>` : '';
+  const badge = p.badge ? `<span class="card__badge">${escapeHtml(p.badge)}</span>` : '';
+  return `
+    <article class="card" id="card-${p.id}">
+      <a class="card__main" href="${fixUrl(p.url || './')}">
+        <div class="card__media${photo ? ' card__media--photo' : ''}${p.fit === 'contain' ? ' card__media--contain' : ''}">
+          <img src="${imgOf(p)}" alt="${escapeHtml(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='${PLACEHOLDERS[p.type] || PLACEHOLDERS.helmet}'">
+          ${img2}${sale}${badge}
+        </div>
+        <div class="card__body">
+          <h3 class="card__name">${escapeHtml(p.name)}</h3>
+          <p class="card__price">${rub(p.price)}${p.oldPrice ? `<s>${rub(p.oldPrice)}</s>` : ''}${p.size ? `<span class="card__size">${escapeHtml(p.size)}</span>` : ''}</p>
+        </div>
+      </a>
+      <button class="card__add ${inCart ? 'is-added' : ''}" data-add="${p.id}" aria-label="Добавить в корзину: ${escapeHtml(p.name)}">
+        ${inCart ? ICONS.check : ICONS.plus}
+      </button>
+    </article>`;
+}
+
+function teaserHtml(t) {
+  return `
+    <article class="card card--teaser">
+      <div class="card__media"><img src="${PLACEHOLDERS[t.type]}" alt="" loading="lazy"></div>
+      <div class="card__body">
+        <h3 class="card__name">${escapeHtml(t.name)}</h3>
+        <p class="card__price">${escapeHtml(t.note)}</p>
+      </div>
+    </article>`;
+}
+
 function renderCatalog() {
   const track = $('#catalogTrack');
-  const items = CONFIG.products.filter(p => currentFilter === 'all' || p.type === currentFilter);
+  if (!track) return;
+  const match = p => currentFilter === 'all' || p.type === currentFilter;
+  const items = catalogItems().filter(match);
+  const teasers = CONFIG.teasers.filter(match);
   $('#catalogTitle').textContent = CATALOG_TITLES[currentFilter];
-  if (!items.length) { track.innerHTML = '<p class="catalog__empty">Скоро здесь появятся товары</p>'; return; }
-
-  const inCart = new Set(cart.map(i => i.id));
-  track.innerHTML = items.map(p => `
-    <article class="card" id="card-${p.id}">
-      <div class="card__media">
-        <img src="${imgOf(p)}" alt="${escapeHtml(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='${PLACEHOLDERS[p.type]}'">
-        ${p.oldPrice ? `<span class="card__sale">−${Math.round((1 - p.price / p.oldPrice) * 100)}%</span>` : ''}
-        <button class="card__add ${inCart.has(p.id) ? 'is-added' : ''}" data-add="${p.id}" aria-label="Добавить в корзину: ${escapeHtml(p.name)}">
-          ${inCart.has(p.id) ? ICONS.check : ICONS.plus}
-        </button>
-      </div>
-      <div class="card__body">
-        <h3 class="card__name">${escapeHtml(p.name)}</h3>
-        <p class="card__price">${rub(p.price)}${p.oldPrice ? `<s>${rub(p.oldPrice)}</s>` : ''}</p>
-      </div>
-    </article>`).join('');
+  track.innerHTML = items.map(cardHtml).join('') + teasers.map(teaserHtml).join('');
+  if (!track.innerHTML.trim()) track.innerHTML = '<p class="catalog__empty">Скоро здесь появятся товары</p>';
   track.scrollLeft = 0;
   updateArrows();
 }
 
+// Перерисовать все карточки на странице (например, после изменения корзины)
+function rerenderCards() {
+  renderCatalog();
+  renderCatalogPage();
+  renderRelated();
+}
+
 function updateArrows() {
   const t = $('#catalogTrack');
+  if (!t) return;
   $('#prevBtn').disabled = t.scrollLeft <= 2;
   $('#nextBtn').disabled = t.scrollLeft + t.clientWidth >= t.scrollWidth - 2;
 }
@@ -280,6 +335,7 @@ function setFilter(f) {
 
 function initCatalog() {
   const track = $('#catalogTrack');
+  if (!track) return;
   const page = dir => {
     const card = $('.card', track);
     const step = card ? card.getBoundingClientRect().width + 4 : track.clientWidth;
@@ -290,14 +346,119 @@ function initCatalog() {
   track.addEventListener('scroll', updateArrows, { passive: true });
   window.addEventListener('resize', updateArrows);
 
-  track.addEventListener('click', e => {
-    const btn = e.target.closest('[data-add]');
-    if (btn) addToCart(btn.dataset.add);
-  });
-
   // Любая ссылка с data-filter (шапка, категории, футер) фильтрует карточки
   $$('[data-filter]').forEach(a => a.addEventListener('click', () => setFilter(a.dataset.filter)));
   renderCatalog();
+}
+
+/* =====================================================================
+   Страница «Каталог»
+   ===================================================================== */
+let pageFilter = 'all';
+function renderCatalogPage() {
+  const grid = $('#catalogGrid');
+  if (!grid) return;
+  const items = allProducts().filter(p => pageFilter === 'all' || p.type === pageFilter);
+  grid.innerHTML = items.length ? items.map(cardHtml).join('')
+    : '<p class="catalog__empty">В этой категории скоро появятся товары — <a href="#" data-social="telegram" target="_blank" rel="noopener">напишите нам</a>, подберём под заказ.</p>';
+  $('#catalogPageTitle').textContent = pageFilter === 'all' ? 'Каталог' : CATALOG_TITLES[pageFilter];
+  $$('.tab', $('#catalogTabs')).forEach(t => t.setAttribute('aria-selected', String(t.dataset.type === pageFilter)));
+  initSocialLinks(grid);
+}
+function initCatalogPage() {
+  const tabs = $('#catalogTabs');
+  if (!tabs) return;
+  const count = t => allProducts().filter(p => t === 'all' || p.type === t).length;
+  tabs.innerHTML = TYPE_TABS.map(([t, label]) =>
+    `<button class="tab" role="tab" data-type="${t}">${label}<span>${count(t)}</span></button>`).join('');
+  const fromUrl = new URLSearchParams(location.search).get('type');
+  if (TYPE_TABS.some(([t]) => t === fromUrl)) pageFilter = fromUrl;
+  tabs.addEventListener('click', e => {
+    const t = e.target.closest('.tab');
+    if (!t) return;
+    pageFilter = t.dataset.type;
+    const u = new URL(location.href);
+    if (pageFilter === 'all') u.searchParams.delete('type'); else u.searchParams.set('type', pageFilter);
+    history.replaceState(null, '', u);
+    renderCatalogPage();
+  });
+  renderCatalogPage();
+}
+
+/* =====================================================================
+   Страница товара: галерея, полноэкранный просмотр, заказ
+   ===================================================================== */
+function initSlider(track, { counter, thumbs, prev, next, onChange } = {}) {
+  const slides = () => [...track.children];
+  const index = () => Math.round(track.scrollLeft / track.clientWidth);
+  const go = i => {
+    const n = slides().length;
+    i = (i + n) % n;
+    track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' });
+  };
+  let last = -1;
+  const update = () => {
+    const i = index();
+    if (i === last) return;
+    last = i;
+    if (counter) counter.textContent = `${i + 1} / ${slides().length}`;
+    if (thumbs) thumbs.forEach((t, k) => t.classList.toggle('is-active', k === i));
+    if (onChange) onChange(i);
+  };
+  track.addEventListener('scroll', () => requestAnimationFrame(update), { passive: true });
+  prev && prev.addEventListener('click', e => { e.stopPropagation(); go(index() - 1); });
+  next && next.addEventListener('click', e => { e.stopPropagation(); go(index() + 1); });
+  update();
+  return { go, index, jump: i => { track.scrollTo({ left: i * track.clientWidth }); update(); } };
+}
+
+function renderRelated() {
+  const track = $('#relatedTrack');
+  if (!track) return;
+  const id = $('.pdp').dataset.product;
+  const current = findProduct(id);
+  const others = allProducts().filter(p => p.id !== id)
+    .sort((a, b) => (b.type === current.type) - (a.type === current.type));
+  $('#related').hidden = !others.length;
+  track.innerHTML = others.map(cardHtml).join('');
+}
+
+function initProductPage() {
+  const pdp = $('.pdp');
+  if (!pdp) return;
+  const p = findProduct(pdp.dataset.product);
+  if (!p) return;
+
+  const thumbs = $$('.gallery__thumb');
+  const main = initSlider($('#galleryTrack'), {
+    counter: $('#galleryCounter'), thumbs,
+    prev: $('.gallery__main .gallery__arrow--prev'), next: $('.gallery__main .gallery__arrow--next'),
+  });
+  thumbs.forEach(t => t.addEventListener('click', () => main.go(Number(t.dataset.slide))));
+
+  // Полноэкранный просмотр
+  const lb = $('#lightbox');
+  const lbSlider = initSlider($('#lightboxTrack'), {
+    counter: $('#lightboxCounter'),
+    prev: $('.gallery__arrow--prev', lb), next: $('.gallery__arrow--next', lb),
+  });
+  const openLightbox = () => { openLayer('#lightbox'); requestAnimationFrame(() => lbSlider.jump(main.index())); };
+  $('#galleryTrack').addEventListener('click', openLightbox);
+  $('#galleryZoom').addEventListener('click', openLightbox);
+  lb.addEventListener('click', e => { if (e.target.closest('.lightbox__slide') && !e.target.closest('img')) closeLayer(lb); });
+  lb.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') lbSlider.go(lbSlider.index() + 1);
+    if (e.key === 'ArrowLeft') lbSlider.go(lbSlider.index() - 1);
+  });
+  document.addEventListener('keydown', e => {
+    if (!lb.hidden || $$('.modal, .drawer, .search').some(l => !l.hidden)) return;
+    if (e.key === 'ArrowRight') main.go(main.index() + 1);
+    if (e.key === 'ArrowLeft') main.go(main.index() - 1);
+  });
+
+  $('#pdpOrder').addEventListener('click', () => openOrder([{ id: p.id, size: p.size || null, qty: 1 }]));
+  $('#pdpCart').addEventListener('click', () => addToCart(p.id));
+  renderRelated();
 }
 
 /* =====================================================================
@@ -305,12 +466,20 @@ function initCatalog() {
    ===================================================================== */
 let cart = store.get('coulair-cart', []).filter(i => findProduct(i.id));
 
-function saveCart() { store.set('coulair-cart', cart); renderCart(); renderCatalog(); }
+function saveCart() { store.set('coulair-cart', cart); renderCart(); rerenderCards(); }
 function cartCount(items = cart) { return items.reduce((s, i) => s + i.qty, 0); }
 function cartSum(items = cart) { return items.reduce((s, i) => s + findProduct(i.id).price * i.qty, 0); }
 
 function addToCart(id, size = null) {
+  const p = findProduct(id);
+  if (!p) return;
+  size = size || p.size || null;
   const found = cart.find(i => i.id === id && i.size === size);
+  const inCart = cart.filter(i => i.id === id).reduce((n, i) => n + i.qty, 0);
+  if (p.stock && inCart >= p.stock) {
+    toast(p.stock === 1 ? 'Это единственный экземпляр — он уже в корзине' : 'Больше нет в наличии');
+    return;
+  }
   if (found) found.qty += 1; else cart.push({ id, size, qty: 1 });
   saveCart();
   const left = CONFIG.freeShippingFrom - cartCount();
@@ -349,6 +518,10 @@ function renderCart() {
 
 function initCart() {
   $('#cartBtn').addEventListener('click', () => openLayer('#cartDrawer'));
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-add]');
+    if (btn) { e.preventDefault(); addToCart(btn.dataset.add); }
+  });
   $('#cartList').addEventListener('click', e => {
     const btn = e.target.closest('[data-remove]');
     if (!btn) return;
@@ -377,16 +550,16 @@ function openLayer(sel) {
 }
 function closeLayer(layer) {
   layer.hidden = true;
-  if (!$$('.modal, .drawer, .search').some(l => !l.hidden)) document.body.style.overflow = '';
+  if (!$$('.modal, .drawer, .search, .lightbox').some(l => !l.hidden)) document.body.style.overflow = '';
   if (lastFocus && lastFocus.focus) lastFocus.focus();
 }
 function initLayers() {
-  $$('.modal, .drawer, .search').forEach(layer => {
+  $$('.modal, .drawer, .search, .lightbox').forEach(layer => {
     layer.addEventListener('click', e => { if (e.target.closest('[data-close]')) closeLayer(layer); });
   });
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
-    const open = $$('.modal, .drawer, .search').filter(l => !l.hidden).pop();
+    const open = $$('.modal, .drawer, .search, .lightbox').filter(l => !l.hidden).pop();
     if (open) closeLayer(open);
     else if (!$('#chatPanel').hidden) toggleChat(false);
   });
@@ -508,8 +681,8 @@ function initSearch() {
   const render = () => {
     const q = input.value.trim().toLowerCase();
     if (!q) { results.innerHTML = ''; return; }
-    const keywords = { helmet: 'шлем шлемы', boots: 'ботинки ботинок обувь', pants: 'штаны брюки' };
-    const found = allProducts().filter(p => p.name.toLowerCase().includes(q) || keywords[p.type].includes(q));
+    const keywords = { helmet: 'шлем шлемы', boots: 'ботинки ботинок обувь', pants: 'штаны брюки', other: '' };
+    const found = allProducts().filter(p => (p.name + ' ' + (p.brand || '')).toLowerCase().includes(q) || (keywords[p.type] || '').includes(q));
     results.innerHTML = found.length
       ? found.map(p => `<li><button class="search__result" data-go="${p.id}">
           <img src="${imgOf(p)}" alt="" onerror="this.onerror=null;this.src='${PLACEHOLDERS[p.type]}'">
@@ -520,13 +693,10 @@ function initSearch() {
   results.addEventListener('click', e => {
     const btn = e.target.closest('[data-go]');
     if (!btn) return;
-    const id = btn.dataset.go;
+    const p = findProduct(btn.dataset.go);
     closeLayer($('#searchModal'));
-    if (id === 'pants') { $('#pants').scrollIntoView({ behavior: 'smooth' }); return; }
-    setFilter('all');
-    const card = $('#card-' + id);
-    $('#catalog').scrollIntoView({ behavior: 'smooth' });
-    setTimeout(() => card && card.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' }), 500);
+    if (p.id === 'pants' && $('#pants')) { $('#pants').scrollIntoView({ behavior: 'smooth' }); return; }
+    location.href = fixUrl(p.url);
   });
   $('#searchBtn').addEventListener('click', () => { input.value = ''; render(); openLayer('#searchModal'); });
 }
@@ -542,13 +712,17 @@ function toggleChat(force) {
   $('#chatBtn').setAttribute('aria-expanded', String(open));
 }
 
+function initSocialLinks(root = document) {
+  const tg = CONFIG.socials.find(s => s.id === 'telegram');
+  $$('[data-social="telegram"], #headerTg', root).forEach(a => { a.href = tg && tg.url ? tg.url : '#'; });
+}
+
 function initSocials() {
   const active = CONFIG.socials.filter(s => s.url);
   $('#chatLinks').innerHTML = active.map(s =>
     `<a class="chat__link" href="${s.url}" target="_blank" rel="noopener">${ICONS[s.id] || ''}${escapeHtml(s.label)}</a>`).join('');
 
-  const tg = CONFIG.socials.find(s => s.id === 'telegram');
-  $$('[data-social="telegram"], #headerTg').forEach(a => { a.href = tg && tg.url ? tg.url : '#'; });
+  initSocialLinks();
 
   const chat = $('#chat');
   const onScroll = () => {
@@ -725,8 +899,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initLayers();
   initCart();
   initCatalog();
+  initCatalogPage();
+  initProductPage();
   initOrderForm();
   initSearch();
   initSocials();
   startSnow($('#snow'), $('#footer'));
+  fixLocalLinks();
 });

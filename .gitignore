@@ -3,3 +3,5 @@
 /generated_video111.mp4
 /image_*.png
 /photo_*.jpg
+# Оригиналы фото товаров (на сайт идут обработанные 1.jpg, 2.jpg …)
+/catalog/*/исходники/

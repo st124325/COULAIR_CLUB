@@ -2,16 +2,17 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
+  <base href="../">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Coulair Club — горнолыжная одежда и снаряжение</title>
-  <meta name="description" content="Coulair Club: широкие горнолыжные штаны, шлемы и горнолыжные ботинки. Бесплатная доставка по РФ при покупке двух позиций.">
+  <title>Каталог — Coulair Club</title>
+  <meta name="description" content="Горнолыжные шлемы, ботинки и штаны Coulair Club. Доставка по России.">
   <link rel="icon" type="image/png" href="assets/logo-black.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="page-sub">
 
   <!-- ========== Бегущая строка ========== -->
   <div class="ticker" aria-label="Новости магазина">
@@ -63,95 +64,15 @@
     <a href="#" class="mobile-menu__tg" data-social="telegram" target="_blank" rel="noopener">Наш Telegram →</a>
   </div>
 
-  <main id="top">
-
-    <!-- ========== Первый экран: видео ========== -->
-    <section class="hero" id="hero">
-      <video class="hero__video" id="heroVideo" muted playsinline preload="auto" poster="assets/hero-poster.jpg"></video>
-      <div class="hero__fallback" aria-hidden="true"></div>
-      <canvas class="hero__snow" id="heroSnow" aria-hidden="true"></canvas>
-      <div class="hero__shade" aria-hidden="true"></div>
-
-      <div class="offer glass" id="offer">
-        <p class="offer__eyebrow">Старт сезона 2026/27</p>
-        <h1 class="offer__title">Специальное предложение в&nbsp;начале сезона</h1>
-        <p class="offer__text">При покупке 2&nbsp;позиций — бесплатная доставка по&nbsp;всей России.</p>
-        <a class="btn btn--light" href="#pants">Выбрать экипировку</a>
-      </div>
-    </section>
-
-    <!-- ========== Главный товар: штаны 360° ========== -->
-    <section class="product" id="pants">
-      <div class="container product__grid">
-        <div class="viewer" id="viewer" tabindex="0" aria-label="Обзор штанов на 360 градусов. Потяните влево или вправо, чтобы покрутить">
-          <img class="viewer__frame" id="viewerFrame" src="assets/pants360/001.jpg" alt="Широкие горнолыжные штаны, вид 360°" draggable="false">
-          <div class="viewer__progress" id="viewerProgress"><span></span></div>
-          <span class="viewer__badge">360°</span>
-          <div class="viewer__hint" id="viewerHint">
-            <svg viewBox="0 0 24 24"><path d="M8 7 3 12l5 5M16 7l5 5-5 5M3 12h18"/></svg>
-            Потяните, чтобы покрутить
-          </div>
-        </div>
-
-        <div class="product__info">
-          <p class="eyebrow">Главный товар сезона</p>
-          <h2 class="product__title">Широкие горнолыжные штаны</h2>
-          <p class="product__desc">Свободный крой, мембрана и проклеенные швы. Сидят поверх ботинок, не сковывают движения на склоне и в городе.</p>
-
-          <div class="price">
-            <span class="price__new">7&nbsp;999&nbsp;₽</span>
-            <s class="price__old">10&nbsp;000&nbsp;₽</s>
-            <span class="price__tag">−20%</span>
-          </div>
-
-          <div class="sizes">
-            <p class="sizes__label">Размеры в наличии</p>
-            <div class="sizes__list" id="sizeList" role="radiogroup" aria-label="Размер">
-              <button class="size" role="radio" aria-checked="false" data-size="M">M</button>
-              <button class="size" role="radio" aria-checked="false" data-size="L">L</button>
-              <button class="size" role="radio" aria-checked="false" data-size="XL">XL</button>
-            </div>
-            <p class="sizes__error" id="sizeError" hidden>Выберите размер</p>
-          </div>
-
-          <button class="btn btn--dark btn--wide" id="orderPantsBtn">Заказать</button>
-
-          <ul class="perks">
-            <li>Бесплатная доставка по РФ от 2 позиций</li>
-            <li>Примерка и обмен размера</li>
-            <li>Ответим в Telegram в течение часа</li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========== Категории ========== -->
-    <section class="categories" aria-label="Категории">
-      <div class="categories__list">
-        <a class="cat-btn" href="#pants">Горнолыжные штаны</a>
-        <a class="cat-btn" href="#catalog" data-filter="helmet">Шлемы</a>
-        <a class="cat-btn" href="#catalog" data-filter="boots">Ботинки</a>
-        <a class="cat-btn" href="catalog/">Весь каталог</a>
-      </div>
-    </section>
-
-    <!-- ========== Карточки: шлемы и ботинки ========== -->
-    <section class="catalog" id="catalog">
-      <div class="catalog__head">
-        <h2 class="catalog__title" id="catalogTitle">Подобрано к сезону</h2>
-        <div class="catalog__arrows">
-          <a class="catalog__all" href="catalog/">Смотреть всё</a>
-          <button class="arrow" id="prevBtn" aria-label="Назад">
-            <svg viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg>
-          </button>
-          <button class="arrow" id="nextBtn" aria-label="Вперёд">
-            <svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg>
-          </button>
-        </div>
-      </div>
-      <div class="catalog__track" id="catalogTrack"></div>
-    </section>
+  <main class="catalog-page" id="top">
+    <div class="container">
+      <nav class="crumbs" aria-label="Навигация"><a href="./">Главная</a><span class="crumbs__sep">/</span><span aria-current="page">Каталог</span></nav>
+      <h1 class="page-title" id="catalogPageTitle">Каталог</h1>
+      <div class="tabs" id="catalogTabs" role="tablist"></div>
+      <div class="grid" id="catalogGrid"></div>
+    </div>
   </main>
+
 
   <!-- ========== Футер со снегом ========== -->
   <footer class="footer" id="footer">
