@@ -37,6 +37,9 @@ jobs:
           mkdir _site
           cp -r index.html css js assets catalog CNAME .nojekyll _site/
 
+      - name: Версии файлов (чтобы браузеры не держали старые копии)
+        run: python tools/stamp_assets.py _site
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

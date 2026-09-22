@@ -44,6 +44,10 @@ const PLACEHOLDERS = {
 const CATALOG_TITLES = { all: 'Подобрано к сезону', helmet: 'Горнолыжные шлемы', boots: 'Горнолыжные ботинки', pants: 'Горнолыжные штаны' };
 const TYPE_TABS = [['all', 'Всё'], ['helmet', 'Шлемы'], ['boots', 'Ботинки'], ['pants', 'Штаны']];
 
+// Версия файлов сайта (?v=… проставляется при публикации) — чтобы браузер не держал старые копии
+const ASSET_V = (() => { try { return new URL(document.currentScript.src).searchParams.get('v') || ''; } catch { return ''; } })();
+const withV = path => new URL(path + (ASSET_V ? '?v=' + ASSET_V : ''), document.baseURI).href;
+
 /* ---------- утилиты ---------- */
 const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => [...root.querySelectorAll(s)];
@@ -922,20 +926,24 @@ function initGame() {
   const btn = $('#gameBtn');
   if (!btn) return;
   let loading = null;
+  const load = () => loading || (loading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = withV('js/game.js');
+    s.onload = resolve;
+    s.onerror = () => { loading = null; s.remove(); reject(); };
+    document.head.appendChild(s);
+  }));
+  // подгружаем заранее, когда низ страницы показался на экране, — к нажатию игра уже готова
+  new IntersectionObserver((entries, io) => {
+    if (entries.some(e => e.isIntersecting)) { io.disconnect(); load().catch(() => {}); }
+  }, { rootMargin: '400px' }).observe($('#footer'));
+
   btn.addEventListener('click', () => {
     if (window.CoulairGame) { window.CoulairGame.open(); return; }
-    if (loading) return;
-    btn.disabled = true;
-    loading = new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = new URL('js/game.js', document.baseURI).href;
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
-    });
-    loading.then(() => window.CoulairGame.open())
-      .catch(() => { toast('Не удалось загрузить игру'); loading = null; })
-      .finally(() => { btn.disabled = false; });
+    btn.classList.add('is-loading');
+    load().then(() => window.CoulairGame.open())
+      .catch(() => toast('Не удалось загрузить игру, попробуйте ещё раз'))
+      .finally(() => btn.classList.remove('is-loading'));
   });
 }
 

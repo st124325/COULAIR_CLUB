@@ -318,14 +318,22 @@ svg.fill { fill: currentColor; stroke: none; }
 .footer__nav a:hover { opacity: .65; }
 .footer__copy { margin: 0; font-size: 14px; opacity: .5; }
 .game-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px 7px 10px; border-radius: 99px;
-  border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.06);
-  color: #fff; font-size: 13px; font-weight: 700;
-  transition: background .2s, border-color .2s;
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 24px; padding: 0 9px 0 7px; border-radius: 99px;
+  border: 1px solid rgba(255,255,255,.2); background: transparent;
+  color: rgba(255,255,255,.7); font-size: 11px; font-weight: 700; letter-spacing: .02em;
+  transition: background .2s, color .2s, border-color .2s;
 }
-.game-btn:hover { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.4); }
-.game-btn svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
+.game-btn:hover { background: rgba(255,255,255,.1); color: #fff; border-color: rgba(255,255,255,.4); }
+.game-btn svg { width: 10px; height: 10px; fill: currentColor; stroke: none; }
+.game-btn.is-loading { pointer-events: none; opacity: .7; }
+.game-btn.is-loading svg { display: none; }
+.game-btn.is-loading::before {
+  content: ""; width: 9px; height: 9px; border-radius: 50%;
+  border: 1.5px solid currentColor; border-right-color: transparent;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------- Плавающая кнопка связи ---------- */
 .chat {

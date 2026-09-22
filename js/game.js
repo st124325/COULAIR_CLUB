@@ -3,6 +3,7 @@
    Грузится только по нажатию кнопки «Мини-игра» (см. initGame в main.js).
    ===================================================================== */
 (() => {
+  const V = (() => { try { return new URL(document.currentScript.src).searchParams.get('v') || ''; } catch { return ''; } })();
   const BEST_KEY = 'coulair-run-best';
   const RIDERS = {
     ski: {
@@ -35,7 +36,7 @@
   function build() {
     const css = document.createElement('link');
     css.rel = 'stylesheet';
-    css.href = new URL('css/game.css', document.baseURI).href;
+    css.href = new URL('css/game.css' + (V ? '?v=' + V : ''), document.baseURI).href;
     document.head.appendChild(css);
 
     root = document.createElement('div');
