@@ -20,7 +20,7 @@ const CONFIG = {
   // 360° штанов: кадры, нарезанные из видео (01.jpg … 72.jpg = полный оборот)
   pants360: { path: 'assets/pants360/', count: 144 },
 
-  // Главный товар
+  // Главный товар (блок со штанами 360° на главной). Цена/размеры меняются здесь.
   pants: {
     id: 'pants', type: 'pants', name: 'Широкие горнолыжные штаны',
     price: 7999, oldPrice: 10000, sizes: ['M', 'L', 'XL'],
@@ -243,6 +243,11 @@ let selectedSize = null;
 function initSizes() {
   const wrap = $('.sizes');
   if (!$('#orderPantsBtn')) return;
+  // цена и размеры штанов берутся из CONFIG.pants — меняются в одном месте
+  const P = CONFIG.pants;
+  $('#pants .price').innerHTML = `<span class="price__new">${rub(P.price)}</span>` + (P.oldPrice
+    ? `<s class="price__old">${rub(P.oldPrice)}</s><span class="price__tag">−${Math.round((1 - P.price / P.oldPrice) * 100)}%</span>` : '');
+  $('#sizeList').innerHTML = P.sizes.map(z => `<button class="size" role="radio" aria-checked="false" data-size="${z}">${z}</button>`).join('');
   $$('.size').forEach(btn => btn.addEventListener('click', () => {
     selectedSize = btn.dataset.size;
     $$('.size').forEach(b => b.setAttribute('aria-checked', String(b === btn)));
@@ -270,9 +275,14 @@ function cardHtml(p) {
   const photo = !!(p.images && p.images.length);
   const img2 = photo && p.images[1] ? `<img class="card__img2" src="${p.images[1]}" alt="" loading="lazy">` : '';
   const sale = p.oldPrice ? `<span class="card__sale">−${Math.round((1 - p.price / p.oldPrice) * 100)}%</span>` : '';
-  const badge = p.badge ? `<span class="card__badge">${escapeHtml(p.badge)}</span>` : '';
+  const badge = p.sold ? '<span class="card__badge card__badge--sold">Продано</span>'
+    : p.badge ? `<span class="card__badge">${escapeHtml(p.badge)}</span>` : '';
+  const add = p.sold ? '' : `
+      <button class="card__add ${inCart ? 'is-added' : ''}" data-add="${p.id}" aria-label="Добавить в корзину: ${escapeHtml(p.name)}">
+        ${inCart ? ICONS.check : ICONS.plus}
+      </button>`;
   return `
-    <article class="card" id="card-${p.id}">
+    <article class="card${p.sold ? ' card--sold' : ''}" id="card-${p.id}">
       <a class="card__main" href="${fixUrl(p.url || './')}">
         <div class="card__media${photo ? ' card__media--photo' : ''}${p.fit === 'contain' ? ' card__media--contain' : ''}">
           <img src="${imgOf(p)}" alt="${escapeHtml(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='${PLACEHOLDERS[p.type] || PLACEHOLDERS.helmet}'">
@@ -282,10 +292,7 @@ function cardHtml(p) {
           <h3 class="card__name">${escapeHtml(p.name)}</h3>
           <p class="card__price">${rub(p.price)}${p.oldPrice ? `<s>${rub(p.oldPrice)}</s>` : ''}${p.size ? `<span class="card__size">${escapeHtml(p.size)}</span>` : ''}</p>
         </div>
-      </a>
-      <button class="card__add ${inCart ? 'is-added' : ''}" data-add="${p.id}" aria-label="Добавить в корзину: ${escapeHtml(p.name)}">
-        ${inCart ? ICONS.check : ICONS.plus}
-      </button>
+      </a>${add}
     </article>`;
 }
 
@@ -456,15 +463,17 @@ function initProductPage() {
     if (e.key === 'ArrowLeft') main.go(main.index() - 1);
   });
 
-  $('#pdpOrder').addEventListener('click', () => openOrder([{ id: p.id, size: p.size || null, qty: 1 }]));
-  $('#pdpCart').addEventListener('click', () => addToCart(p.id));
+  if (!p.sold) {
+    $('#pdpOrder').addEventListener('click', () => openOrder([{ id: p.id, size: p.size || null, qty: 1 }]));
+    $('#pdpCart').addEventListener('click', () => addToCart(p.id));
+  }
   renderRelated();
 }
 
 /* =====================================================================
    Корзина
    ===================================================================== */
-let cart = store.get('coulair-cart', []).filter(i => findProduct(i.id));
+let cart = store.get('coulair-cart', []).filter(i => findProduct(i.id) && !findProduct(i.id).sold);
 
 function saveCart() { store.set('coulair-cart', cart); renderCart(); rerenderCards(); }
 function cartCount(items = cart) { return items.reduce((s, i) => s + i.qty, 0); }
@@ -476,6 +485,7 @@ function addToCart(id, size = null) {
   size = size || p.size || null;
   const found = cart.find(i => i.id === id && i.size === size);
   const inCart = cart.filter(i => i.id === id).reduce((n, i) => n + i.qty, 0);
+  if (p.sold) { toast('Этот товар уже продан'); return; }
   if (p.stock && inCart >= p.stock) {
     toast(p.stock === 1 ? 'Это единственный экземпляр — он уже в корзине' : 'Больше нет в наличии');
     return;
@@ -746,85 +756,107 @@ function makeSprite(size, paint) {
   paint(c.getContext('2d'), size);
   return c;
 }
-// мягкий пушистый комок — так выглядит большинство снежинок в полёте
-const softFlake = makeSprite(64, (g, s) => {
-  const r = s / 2, grad = g.createRadialGradient(r, r, 0, r, r, r);
-  grad.addColorStop(0, 'rgba(255,255,255,1)');
-  grad.addColorStop(0.35, 'rgba(255,255,255,.85)');
-  grad.addColorStop(0.7, 'rgba(240,246,255,.25)');
-  grad.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = grad; g.fillRect(0, 0, s, s);
-});
-// расфокусированное хлопье прямо перед «камерой»
-const bokehFlake = makeSprite(64, (g, s) => {
-  const r = s / 2, grad = g.createRadialGradient(r, r, 0, r, r, r);
-  grad.addColorStop(0, 'rgba(255,255,255,.55)');
-  grad.addColorStop(0.6, 'rgba(235,242,255,.35)');
-  grad.addColorStop(0.85, 'rgba(255,255,255,.12)');
-  grad.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = grad; g.fillRect(0, 0, s, s);
-});
-// шестилучевой кристалл с веточками
-function crystalSprite(seed) {
-  return makeSprite(96, (g, s) => {
-    const r = s / 2;
-    g.translate(r, r);
-    g.strokeStyle = 'rgba(255,255,255,.95)';
-    g.lineCap = 'round';
-    g.shadowColor = 'rgba(200,225,255,.9)';
-    g.shadowBlur = 4;
-    const arm = r * 0.8, branches = 2 + (seed % 2);
-    for (let k = 0; k < 6; k++) {
-      g.save();
-      g.rotate(k * Math.PI / 3);
-      g.lineWidth = 2.6;
-      g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -arm); g.stroke();
-      g.lineWidth = 1.8;
-      for (let j = 1; j <= branches; j++) {
-        const y = -arm * (0.3 + j * 0.55 / branches);
-        const len = arm * (0.34 - j * 0.07) * (seed % 3 === 0 ? 1.2 : 1);
-        g.beginPath();
-        g.moveTo(0, y); g.lineTo(-len * 0.8, y - len * 0.6);
-        g.moveTo(0, y); g.lineTo(len * 0.8, y - len * 0.6);
-        g.stroke();
-      }
-      g.restore();
+const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;   // ~нормальное в [-1, 1]
+
+// Пушинка: бугристый комочек из нескольких слипшихся кристалликов — полупрозрачный, с рваными краями и ворсинками
+function fluffSprite() {
+  return makeSprite(128, (g, s) => {
+    const c = s / 2;
+    // 2–4 «подкомочка», слипшихся вместе, — поэтому форма неровная, а не круглая
+    const parts = Array.from({ length: 2 + (Math.random() * 3 | 0) }, () =>
+      [c + gauss() * s * 0.09, c + gauss() * s * 0.09, 0.6 + Math.random() * 0.5]);
+    const blobs = 55 + (Math.random() * 35 | 0);
+    for (let i = 0; i < blobs; i++) {
+      const [px, py, k] = parts[i % parts.length];
+      const x = px + gauss() * s * 0.085 * k, y = py + gauss() * s * 0.085 * k;
+      const r = s * (0.025 + Math.random() * 0.055);
+      const al = 0.09 + Math.random() * 0.15;
+      const grd = g.createRadialGradient(x, y, 0, x, y, r);
+      grd.addColorStop(0, `rgba(255,255,255,${al})`);
+      grd.addColorStop(0.6, `rgba(236,242,252,${al * 0.45})`);
+      grd.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = grd;
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
     }
-    g.fillStyle = '#fff';
-    g.beginPath(); g.arc(0, 0, 3, 0, Math.PI * 2); g.fill();
+    // редкие ворсинки — обломки лучей кристаллов по краю
+    g.lineCap = 'round';
+    const hairs = 4 + (Math.random() * 7 | 0);
+    for (let i = 0; i < hairs; i++) {
+      const [px, py] = parts[i % parts.length];
+      const a = Math.random() * Math.PI * 2;
+      const r0 = s * (0.08 + Math.random() * 0.06), r1 = r0 + s * (0.03 + Math.random() * 0.07);
+      const bend = (Math.random() - 0.5) * 0.6;
+      g.strokeStyle = `rgba(255,255,255,${0.07 + Math.random() * 0.12})`;
+      g.lineWidth = 0.6 + Math.random() * 0.9;
+      g.beginPath();
+      g.moveTo(px + Math.cos(a) * r0, py + Math.sin(a) * r0);
+      g.quadraticCurveTo(px + Math.cos(a + bend) * (r0 + r1) / 2, py + Math.sin(a + bend) * (r0 + r1) / 2,
+                         px + Math.cos(a + bend * 0.5) * r1, py + Math.sin(a + bend * 0.5) * r1);
+      g.stroke();
+    }
   });
 }
-const crystals = [0, 1, 2, 3].map(crystalSprite);
+// тот же спрайт, но вне фокуса — для хлопьев, пролетающих близко к «объективу»
+function defocus(sprite, px) {
+  return makeSprite(sprite.width, g => { g.filter = `blur(${px}px)`; g.drawImage(sprite, 0, 0); });
+}
+// маленькая далёкая снежинка — просто мягкая точка
+const dotSprite = makeSprite(32, (g, s) => {
+  const r = s / 2, grd = g.createRadialGradient(r, r, 0, r, r, r);
+  grd.addColorStop(0, 'rgba(255,255,255,1)');
+  grd.addColorStop(0.4, 'rgba(255,255,255,.6)');
+  grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, s, s);
+});
+// хлопье прямо перед «объективом» — вне фокуса: большое, мягкое, почти прозрачное
+const bokehSprite = makeSprite(96, (g, s) => {
+  const r = s / 2, grd = g.createRadialGradient(r, r, 0, r, r, r);
+  grd.addColorStop(0, 'rgba(255,255,255,.5)');
+  grd.addColorStop(0.55, 'rgba(240,245,255,.34)');
+  grd.addColorStop(0.8, 'rgba(255,255,255,.1)');
+  grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, s, s);
+});
+const fluffs = Array.from({ length: 16 }, fluffSprite);
+const fluffsSoft = fluffs.map(sp => defocus(sp, 3));
 
 function startSnow(canvas, area, density = 1) {
   const ctx = canvas.getContext('2d');
   let flakes = [], w = 0, h = 0, running = false, raf = 0, last = 0, time = 0;
 
-  // z — глубина: 0 далеко (мелкие, медленные, тусклые), 1 у самой «камеры»
+  // z — глубина: 0 далеко (мелкие, медленные, тусклые), 1 у самого «объектива»
   const makeFlake = anywhere => {
-    const z = Math.pow(Math.random(), 1.6);   // дальних больше, чем ближних
+    const z = Math.pow(Math.random(), 1.8);            // дальних намного больше, чем ближних
     const f = {
       z,
       x: Math.random() * (w + 200) - 100,
-      y: anywhere ? Math.random() * h : -20 - Math.random() * 40,
-      sway: Math.random() * Math.PI * 2,
-      swaySpeed: 0.6 + Math.random() * 1.2,
-      swayAmp: 6 + z * 22,
+      y: anywhere ? Math.random() * h : -40 - Math.random() * 60,
+      vx: 0, vy: 0,
+      // у каждой снежинки своя турбулентность: три синусоиды со случайными частотами и фазами
+      tf: [0.25 + Math.random() * 0.5, 0.7 + Math.random() * 0.9, 1.6 + Math.random() * 1.8],
+      tp: [Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3],
       rot: Math.random() * Math.PI * 2,
-      rotSpeed: (Math.random() - 0.5) * 1.4,
-      flutter: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 1.6,
+      tumble: Math.random() * Math.PI * 2,
+      tumbleSpeed: 0.8 + Math.random() * 1.8,
+      drag: 1.2 + Math.random() * 1.6,                 // насколько быстро подхватывает ветер
     };
-    if (z > 0.94) {                                   // крупное размытое хлопье
-      f.sprite = bokehFlake; f.size = 18 + Math.random() * 22;
-      f.alpha = 0.18 + Math.random() * 0.2; f.speed = 70 + Math.random() * 40;
-    } else if (z > 0.6 && Math.random() < 0.35) {    // кристалл на ближнем плане
-      f.sprite = crystals[(Math.random() * crystals.length) | 0];
-      f.size = 12 + z * 16; f.alpha = 0.75 + Math.random() * 0.25;
-      f.speed = 38 + z * 40; f.crystal = true;
-    } else {                                          // обычные мягкие хлопья
-      f.sprite = softFlake; f.size = 2.5 + z * z * 12;
-      f.alpha = 0.3 + z * 0.65; f.speed = 16 + z * 60 + Math.random() * 10;
+    if (z > 0.95) {
+      f.kind = 'bokeh'; f.sprite = bokehSprite;
+      f.size = 30 + Math.random() * 40; f.alpha = 0.12 + Math.random() * 0.14;
+      f.fall = 90 + Math.random() * 50;
+    } else if (z > 0.35) {
+      const n = (Math.random() * fluffs.length) | 0;
+      f.kind = 'fluff'; f.sprite = z > 0.78 ? fluffsSoft[n] : fluffs[n];
+      f.size = 18 + z * z * 84 * (0.7 + Math.random() * 0.6);
+      f.alpha = 0.6 + z * 0.4;
+      f.fall = 22 + z * 58 + Math.random() * 12;       // крупные пушинки падают чуть быстрее, но всё равно медленно
+    } else {
+      f.kind = 'dot'; f.sprite = dotSprite;
+      f.size = 1.6 + z * 9; f.alpha = 0.25 + z * 1.4;
+      f.fall = 12 + z * 40 + Math.random() * 8;
     }
+    f.amp = 10 + z * 38;                               // размах петляния — у ближних больше (параллакс)
     return f;
   };
 
@@ -833,34 +865,44 @@ function startSnow(canvas, area, density = 1) {
     w = canvas.clientWidth; h = canvas.clientHeight;
     canvas.width = w * dpr; canvas.height = h * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const count = Math.round(Math.min(320, w * h / 3800) * density);
+    const count = Math.round(Math.min(380, w * h / 3200) * density);
     flakes = Array.from({ length: count }, () => makeFlake(true));
   };
 
   const draw = dt => {
     time += dt;
-    // ветер: медленная смена направления + редкие порывы
-    const wind = Math.sin(time * 0.13) * 18 + Math.sin(time * 0.37 + 1.3) * 10
-               + Math.max(0, Math.sin(time * 0.05)) ** 8 * 55;
+    // общий ветер: медленные смены направления и редкие мягкие порывы
+    const wind = Math.sin(time * 0.11) * 16 + Math.sin(time * 0.29 + 1.3) * 9
+               + Math.max(0, Math.sin(time * 0.045 + 2)) ** 10 * 60;
     ctx.clearRect(0, 0, w, h);
     for (const f of flakes) {
-      f.sway += f.swaySpeed * dt;
-      f.y += f.speed * dt;
-      f.x += (wind * (0.35 + f.z) + Math.cos(f.sway) * f.swayAmp * 0.9) * dt;
-      if (f.y > h + 30 || f.x < -120 || f.x > w + 120) {
+      // локальная турбулентность вокруг снежинки
+      const t0 = Math.sin(time * f.tf[0] + f.tp[0]), t1 = Math.sin(time * f.tf[1] + f.tp[1]), t2 = Math.sin(time * f.tf[2] + f.tp[2]);
+      const targetVx = wind * (0.3 + f.z * 0.9) + (t0 * 0.6 + t1 * 0.3 + t2 * 0.1) * f.amp;
+      const targetVy = f.fall * (1 + 0.25 * t1 + 0.1 * t2);
+      // инерция: скорость плавно догоняет поток, а не прыгает
+      const k = 1 - Math.exp(-f.drag * dt);
+      f.vx += (targetVx - f.vx) * k;
+      f.vy += (targetVy - f.vy) * k;
+      f.x += f.vx * dt;
+      f.y += f.vy * dt;
+
+      if (f.y > h + 80 || f.x < -160 || f.x > w + 160) {
         Object.assign(f, makeFlake(false));
-        f.x = Math.random() * (w + 160) - 80 - wind * 2;   // при ветре подсыпаем с наветренной стороны
+        f.x = Math.random() * (w + 200) - 100 - wind * 2.5;   // при ветре подсыпаем с наветренной стороны
         continue;
       }
-      ctx.globalAlpha = f.alpha;
+
       const s = f.size;
-      if (f.crystal) {
+      ctx.globalAlpha = f.alpha;
+      if (f.kind === 'fluff') {
         f.rot += f.rotSpeed * dt;
-        f.flutter += dt * 2.2;
+        f.tumble += f.tumbleSpeed * dt;
         ctx.save();
         ctx.translate(f.x, f.y);
         ctx.rotate(f.rot);
-        ctx.scale(1, 0.55 + 0.45 * Math.abs(Math.cos(f.flutter)));   // кувыркается в полёте
+        // пушинка кувыркается: видна то плашмя, то ребром
+        ctx.scale(1, 0.78 + 0.22 * Math.cos(f.tumble));
         ctx.drawImage(f.sprite, -s / 2, -s / 2, s, s);
         ctx.restore();
       } else {
@@ -878,6 +920,8 @@ function startSnow(canvas, area, density = 1) {
   };
 
   resize();
+  // стартовые скорости = текущему потоку, чтобы в первом кадре снег не «дёрнулся»
+  flakes.forEach(f => { f.vy = f.fall; });
   window.addEventListener('resize', resize);
   if (reducedMotion) { draw(0); return; }
 

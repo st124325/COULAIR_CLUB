@@ -278,6 +278,9 @@ svg.fill { fill: currentColor; stroke: none; }
 .card__badge { position: absolute; left: 12px; bottom: 12px; padding: 5px 10px; border-radius: 99px; background: rgba(255,255,255,.9); color: var(--ink); font-size: 12px; font-weight: 700; }
 .card__size { margin-left: 8px; color: var(--muted); }
 .card--teaser .card__media img { opacity: .55; }
+.card--sold .card__media img { filter: grayscale(1); opacity: .6; }
+.card--sold .card__price { color: var(--muted); text-decoration: line-through; }
+.card__badge--sold { background: var(--ink); color: #fff; }
 .card--teaser .card__price { color: var(--muted); }
 .catalog__all { margin-right: 10px; font-size: 15px; font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
 .catalog__all:hover { opacity: .65; }
@@ -471,6 +474,8 @@ svg.fill { fill: currentColor; stroke: none; }
 .pdp__badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
 .badge { padding: 7px 12px; border-radius: 99px; background: var(--ink); color: #fff; font-size: 13px; font-weight: 700; }
 .badge--stock { background: #e3f2e5; color: #2d7a3e; }
+.badge--sold { background: #f3e1df; color: var(--sale); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
 .pdp .price { margin-bottom: 26px; }
 .size--static { display: inline-grid; place-items: center; width: auto; padding: 0 18px; cursor: default; background: var(--ink); border-color: var(--ink); color: #fff; }
 .pdp__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

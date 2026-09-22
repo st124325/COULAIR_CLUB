@@ -1,0 +1,52 @@
+# Собирает каталог из папки «товары» и публикует сайт на GitHub Pages.
+# Запускается сам при каждом изменении в main; можно запустить вручную во вкладке Actions.
+name: Сборка и публикация сайта
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Установить Pillow (обработка фото)
+        run: pip install Pillow
+
+      - name: Собрать каталог из папки «товары»
+        run: python tools/build_catalog.py
+
+      - name: Сложить файлы сайта
+        run: |
+          mkdir _site
+          cp -r index.html css js assets catalog CNAME .nojekyll _site/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

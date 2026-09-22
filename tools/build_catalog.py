@@ -2,34 +2,60 @@
 """
 Сборка каталога Coulair Club.
 
-Каждый товар — папка в catalog/:
-    catalog/<адрес-товара>/товар.txt   — название, цена, размер, описание
-    catalog/<адрес-товара>/1.jpg, 2.jpg … — фото (первое — главное)
+Товары лежат в папке «товары/» — по папке на товар:
+    товары/<адрес-товара>/товар.txt   — название, цена, размер, описание
+    товары/<адрес-товара>/*.jpg|png    — фото (порядок — по имени файла, первое главное)
+Папки, начинающиеся с «_» (например «_шаблон»), пропускаются.
 
-Запуск из корня сайта:
+На GitHub сборка запускается сама при каждом изменении (.github/workflows/pages.yml).
+Локально, чтобы посмотреть сайт у себя:
     python3 tools/build_catalog.py
 
-Скрипт создаёт:
-    catalog/catalog.js              — данные для карточек, поиска и корзины
-    catalog/index.html              — страница «Каталог»
-    catalog/<адрес-товара>/index.html — страница товара
-Шапка, футер и окна (корзина, заявка, поиск) берутся из index.html,
-поэтому на всех страницах они одинаковые.
+Результат — папка catalog/ (создаётся заново при каждой сборке, руками не править):
+    catalog/catalog.js                 — данные для карточек, поиска и корзины
+    catalog/index.html                 — страница «Каталог»
+    catalog/<адрес-товара>/index.html  — страница товара + обработанные фото
+Шапка, футер и окна (корзина, заявка, поиск) берутся из index.html.
 """
 import html
 import json
 import re
+import shutil
 import sys
 from pathlib import Path
 
+try:
+    from PIL import Image, ImageOps
+except ImportError:          # без Pillow фото копируются как есть
+    Image = None
+
 ROOT = Path(__file__).resolve().parent.parent
+SOURCE = ROOT / 'товары'
 CATALOG = ROOT / 'catalog'
+MAX_SIDE = 1400              # фото больше этого размера уменьшаются
+AVITO_CROP = 52 / 480        # доля высоты снизу с водяным знаком Авито
 SITE_URL = 'https://coulair.ru/'
 
 TYPES = {'шлем': 'helmet', 'шлемы': 'helmet', 'ботинки': 'boots', 'ботинок': 'boots',
          'штаны': 'pants', 'брюки': 'pants', 'аксессуар': 'other', 'аксессуары': 'other'}
 TYPE_LABELS = {'helmet': 'Шлемы', 'boots': 'Ботинки', 'pants': 'Штаны', 'other': 'Аксессуары'}
-IMAGE_RE = re.compile(r'^(\d+)\.(jpe?g|png|webp)$', re.I)
+IMAGE_EXT = {'.jpg', '.jpeg', '.png', '.webp'}
+YES = {'да', 'yes', '+', '1', 'true'}
+TRANSLIT = dict(zip('абвгдеёжзийклмнопрстуфхцчшщъыьэюя',
+    ['a','b','v','g','d','e','e','zh','z','i','y','k','l','m','n','o','p','r','s','t','u','f','h','c','ch','sh','sch','','y','','e','yu','ya']))
+
+
+def slugify(name):
+    s = ''.join(TRANSLIT.get(c, c) for c in name.lower())
+    return re.sub(r'[^a-z0-9]+', '-', s).strip('-') or 'tovar'
+
+
+def natural_key(path):
+    return [int(t) if t.isdigit() else t.lower() for t in re.split(r'(\d+)', path.name)]
+
+
+class ProductError(Exception):
+    pass
 
 esc = html.escape
 
@@ -44,33 +70,44 @@ def to_int(v):
 
 
 def parse_product(folder: Path):
-    text = (folder / 'товар.txt').read_text(encoding='utf-8')
+    where = f'товары/{folder.name}/товар.txt'
+    text = (folder / 'товар.txt').read_text(encoding='utf-8-sig')
     head, _, body = text.partition('\n---')
     meta, features, key = {}, [], None
     for line in head.splitlines():
         if not line.strip() or line.lstrip().startswith('#'):
             continue
-        if line.lstrip().startswith('- ') and key == 'особенности':
-            features.append(line.strip()[2:].strip())
+        if line.lstrip().startswith('-') and key == 'особенности':
+            features.append(line.strip().lstrip('-').strip())
             continue
         k, sep, v = line.partition(':')
         if not sep:
-            continue
+            raise ProductError(f'{where}: непонятная строка «{line.strip()}» — нужно «ключ: значение»')
         key = k.strip().lower()
         meta[key] = v.strip()
 
-    images = sorted((f for f in folder.iterdir() if IMAGE_RE.match(f.name)),
-                    key=lambda f: int(IMAGE_RE.match(f.name).group(1)))
-    if not images:
-        sys.exit(f'В папке {folder.name} нет фото (ожидаются 1.jpg, 2.jpg …)')
-    if 'название' not in meta or to_int(meta.get('цена')) is None:
-        sys.exit(f'В {folder.name}/товар.txt обязательны «название» и «цена»')
+    if meta.get('скрыть', '').lower() in YES:
+        return None
+    if not meta.get('название'):
+        raise ProductError(f'{where}: не заполнено «название»')
+    if to_int(meta.get('цена')) is None:
+        raise ProductError(f'{where}: не заполнена «цена» (только число, например 5390)')
+    type_ = TYPES.get(meta.get('тип', '').lower())
+    if not type_:
+        raise ProductError(f'{where}: «тип» должен быть одним из: шлем, ботинки, штаны, аксессуары')
 
-    slug = folder.name
-    paragraphs = [p.strip() for p in body.strip().split('\n\n') if p.strip()]
+    images = sorted((f for f in folder.iterdir() if f.is_file() and f.suffix.lower() in IMAGE_EXT), key=natural_key)
+    if not images:
+        raise ProductError(f'товары/{folder.name}: нет ни одного фото (.jpg, .png, .webp)')
+
+    stock = to_int(meta.get('в наличии'))
     return {
-        'id': slug,
-        'type': TYPES.get(meta.get('тип', '').lower(), 'other'),
+        'id': slugify(folder.name),
+        'folder': folder,
+        'avito': meta.get('авито', '').lower() in YES,
+        'sources': images,
+        'order': to_int(meta.get('порядок')) or 1000,
+        'type': type_,
         'name': meta['название'],
         'brand': meta.get('бренд', ''),
         'price': to_int(meta.get('цена')),
@@ -78,12 +115,34 @@ def parse_product(folder: Path):
         'size': meta.get('размер', ''),
         'condition': meta.get('состояние', ''),
         'badge': meta.get('бейдж', ''),
-        'stock': to_int(meta.get('в наличии')),
+        'stock': stock,
+        'sold': stock == 0,
         'features': features,
-        'description': paragraphs,
-        'images': [f'catalog/{slug}/{f.name}' for f in images],
-        'url': f'catalog/{slug}/',
+        'description': [p.strip() for p in body.strip().split('\n\n') if p.strip()],
     }
+
+
+def export_images(p):
+    """Копирует фото в catalog/<id>/: обрезает водяной знак, уменьшает, сохраняет в JPG."""
+    out = CATALOG / p['id']
+    out.mkdir(parents=True, exist_ok=True)
+    names = []
+    for i, src in enumerate(p['sources'], 1):
+        if Image is None:
+            if p['avito']:
+                print(f'  ! Pillow не установлен — водяной знак на {src.name} не обрезан (pip install Pillow)')
+            name = f'{i}{src.suffix.lower()}'
+            shutil.copyfile(src, out / name)
+        else:
+            im = ImageOps.exif_transpose(Image.open(src)).convert('RGB')
+            if p['avito']:
+                im = im.crop((0, 0, im.width, im.height - round(im.height * AVITO_CROP)))
+            im.thumbnail((MAX_SIDE, MAX_SIDE))
+            name = f'{i}.jpg'
+            im.save(out / name, 'JPEG', quality=86, optimize=True, progressive=True)
+        names.append(name)
+    p['images'] = [f'catalog/{p["id"]}/{n}' for n in names]
+    p['url'] = f'catalog/{p["id"]}/'
 
 
 # ---------- общие части страниц из index.html ----------
@@ -131,7 +190,8 @@ def product_main(p):
              ('Категория', TYPE_LABELS.get(p['type'], ''))]
     specs_html = ''.join(f'<div class="specs__row"><dt>{k}</dt><dd>{esc(v)}</dd></div>' for k, v in specs if v)
     stock = p['stock']
-    stock_text = 'Единственный экземпляр' if stock == 1 else (f'В наличии: {stock} шт.' if stock else 'В наличии')
+    stock_text = ('Продано' if p['sold'] else 'Единственный экземпляр' if stock == 1
+                  else f'В наличии: {stock} шт.' if stock else 'В наличии')
     type_label = TYPE_LABELS.get(p['type'], 'Каталог')
 
     return f'''  <main class="pdp" id="top" data-product="{p['id']}">
@@ -163,7 +223,7 @@ def product_main(p):
           <h1 class="pdp__title">{esc(p['name'])}</h1>
           <div class="pdp__badges">
             {f'<span class="badge">{esc(p["badge"])}</span>' if p['badge'] else ''}
-            <span class="badge badge--stock">{stock_text}</span>
+            <span class="badge badge--stock{' badge--sold' if p['sold'] else ''}">{stock_text}</span>
           </div>
 
           <div class="price">
@@ -176,8 +236,8 @@ def product_main(p):
           </div>""" if p['size'] else ''}
 
           <div class="pdp__actions">
-            <button class="btn btn--dark" id="pdpOrder">Заказать</button>
-            <button class="btn btn--outline" id="pdpCart">В корзину</button>
+            {'<button class="btn btn--dark" disabled>Продано</button><a class="btn btn--outline" href="#" data-social="telegram" target="_blank" rel="noopener">Найти похожий</a>' if p['sold'] else
+             '<button class="btn btn--dark" id="pdpOrder">Заказать</button><button class="btn btn--outline" id="pdpCart">В корзину</button>'}
           </div>
 
           <ul class="perks">
@@ -239,7 +299,7 @@ def product_head(p):
         'description': ' '.join(p['description'])[:500],
         'brand': {'@type': 'Brand', 'name': p['brand'].split('·')[0].strip()} if p['brand'] else None,
         'offers': {'@type': 'Offer', 'priceCurrency': 'RUB', 'price': p['price'],
-                   'availability': 'https://schema.org/InStock' if (p['stock'] or 1) > 0 else 'https://schema.org/OutOfStock',
+                   'availability': 'https://schema.org/SoldOut' if p['sold'] else 'https://schema.org/InStock',
                    'itemCondition': 'https://schema.org/UsedCondition' if 'б/у' in p['badge'].lower() else 'https://schema.org/NewCondition',
                    'url': SITE_URL + p['url']},
     }
@@ -263,13 +323,41 @@ def catalog_main():
 
 
 def main():
-    folders = sorted(f for f in CATALOG.iterdir() if f.is_dir() and (f / 'товар.txt').exists())
-    products = [parse_product(f) for f in folders]
-    head, top, bottom = site_chrome()
+    folders = sorted(f for f in SOURCE.iterdir() if f.is_dir() and not f.name.startswith('_'))
+    products, errors = [], []
+    for f in folders:
+        if not (f / 'товар.txt').exists():
+            errors.append(f'товары/{f.name}: нет файла товар.txt (скопируйте из товары/_шаблон)')
+            continue
+        try:
+            p = parse_product(f)
+        except ProductError as e:
+            errors.append(str(e))
+            continue
+        if p:
+            products.append(p)
+        else:
+            print(f'  – {f.name}: скрыт')
+    ids = [p['id'] for p in products]
+    for i in {i for i in ids if ids.count(i) > 1}:
+        errors.append(f'Две папки дают одинаковый адрес «{i}» — переименуйте одну из них')
+    if errors:
+        print('Ошибки в товарах:\n  ' + '\n  '.join(errors))
+        sys.exit(1)
 
+    # в наличии — сначала, проданные — в конце
+    products.sort(key=lambda p: (p['sold'], p['order'], p['name']))
+    if CATALOG.exists():
+        shutil.rmtree(CATALOG)
+    CATALOG.mkdir()
+    for p in products:
+        export_images(p)
+
+    head, top, bottom = site_chrome()
+    public = [{k: v for k, v in p.items() if k not in ('folder', 'sources', 'avito', 'order')} for p in products]
     (CATALOG / 'catalog.js').write_text(
-        '/* Создаётся автоматически: python3 tools/build_catalog.py — руками не править */\n'
-        'window.CATALOG = ' + json.dumps(products, ensure_ascii=False, indent=2) + ';\n', encoding='utf-8')
+        '/* Создаётся автоматически из папки «товары» — руками не править */\n'
+        'window.CATALOG = ' + json.dumps(public, ensure_ascii=False, indent=2) + ';\n', encoding='utf-8')
 
     (CATALOG / 'index.html').write_text(page(
         head, top, bottom, base='../', title='Каталог — Coulair Club',
@@ -281,7 +369,8 @@ def main():
             head, top, bottom, base='../../', title=f'{p["name"]} — {rub(p["price"])} · Coulair Club',
             description=(p['description'][0] if p['description'] else p['name'])[:160],
             main=product_main(p), extra_head=product_head(p)), encoding='utf-8')
-        print(f'  ✓ {p["name"]} — {rub(p["price"])}, фото: {len(p["images"])}  →  catalog/{p["id"]}/')
+        status = 'продано' if p['sold'] else rub(p['price'])
+        print(f'  ✓ {p["name"]} — {status}, фото: {len(p["images"])}  →  catalog/{p["id"]}/')
     print(f'Готово: товаров {len(products)}')
 
 

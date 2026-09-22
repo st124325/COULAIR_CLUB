@@ -3,5 +3,6 @@
 /generated_video111.mp4
 /image_*.png
 /photo_*.jpg
-# Оригиналы фото товаров (на сайт идут обработанные 1.jpg, 2.jpg …)
-/catalog/*/исходники/
+# Собирается автоматически из папки «товары» (tools/build_catalog.py)
+/catalog/
+/товары/*/исходники/
