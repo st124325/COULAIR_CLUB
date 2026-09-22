@@ -1,0 +1,81 @@
+/* ================= Мини-игра Coulair Run ================= */
+.game {
+  position: fixed; inset: 0; z-index: 130;
+  background: #f5f8fc;
+  font-family: var(--font, "Manrope", system-ui, sans-serif);
+  color: #16161a;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  animation: fade .25s;
+}
+.game__canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.game__hud {
+  position: absolute; top: 14px; left: 14px; right: 74px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  pointer-events: none;
+}
+.game__hud > div {
+  display: grid; padding: 8px 14px; border-radius: 12px;
+  background: rgba(255,255,255,.82); box-shadow: 0 4px 16px rgba(40,60,90,.1);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.game__hud strong { font-size: 20px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.game__label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6d6b68; }
+.game__shield { place-items: center; font-size: 22px; }
+.game__best { margin-left: auto; }
+
+.game__close {
+  position: absolute; top: 14px; right: 14px;
+  display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%;
+  background: #16161a; color: #fff; border: 0; cursor: pointer;
+}
+.game__close svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
+.game__panel {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(420px, calc(100% - 32px));
+  padding: 30px 28px 26px; border-radius: 20px;
+  background: rgba(255,255,255,.92);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  box-shadow: 0 20px 60px rgba(30,50,80,.2);
+  text-align: center;
+  animation: pop .3s cubic-bezier(.2,.7,.2,1);
+}
+.game__eyebrow { margin: 0 0 6px; font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #d9352b; }
+.game__title { margin: 0 0 12px; font-size: 34px; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; }
+.game__text { margin: 0 0 20px; font-size: 15px; line-height: 1.55; color: #45433f; }
+.game__riders { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.game__rider {
+  display: grid; justify-items: center; gap: 4px; padding: 14px 8px;
+  border: 2px solid #d9d6d0; border-radius: 14px; background: #fff;
+  font: inherit; font-weight: 700; font-size: 15px; cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.game__rider span { font-size: 34px; line-height: 1; }
+.game__rider[aria-checked="true"] { border-color: #16161a; background: #f1efeb; }
+.game__start {
+  width: 100%; min-height: 52px; border: 0; border-radius: 12px;
+  background: #16161a; color: #fff; font: inherit; font-size: 17px; font-weight: 700; cursor: pointer;
+}
+.game__start:hover { background: #2a2a30; }
+.game__keys { margin: 14px 0 0; font-size: 13px; color: #8a8782; }
+.game__link { display: block; margin: 14px auto 0; background: none; border: 0; font: inherit; font-size: 14px; font-weight: 700; color: #16161a; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+.game__touch { position: absolute; left: 0; right: 0; bottom: 18px; display: none; justify-content: space-between; padding: 0 16px; pointer-events: none; }
+.game__touch button {
+  width: 76px; height: 76px; border-radius: 50%; border: 0;
+  background: rgba(22,22,26,.72); color: #fff; font-size: 26px;
+  pointer-events: auto; touch-action: none;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.game__touch button.is-down { background: rgba(22,22,26,.92); transform: scale(.95); }
+.game__touch [data-touch="jump"] { width: 64px; height: 64px; align-self: end; }
+@media (hover: none) and (pointer: coarse) {
+  .game__touch { display: flex; }
+  .game__keys { display: none; }
+}
+@media (max-width: 600px) {
+  .game__hud strong { font-size: 17px; }
+  .game__hud > div { padding: 6px 10px; }
+  .game__title { font-size: 28px; }
+}

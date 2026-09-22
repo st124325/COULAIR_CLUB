@@ -317,6 +317,15 @@ svg.fill { fill: currentColor; stroke: none; }
 .footer__nav { display: flex; gap: 26px; font-weight: 600; opacity: .8; }
 .footer__nav a:hover { opacity: .65; }
 .footer__copy { margin: 0; font-size: 14px; opacity: .5; }
+.game-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px 7px 10px; border-radius: 99px;
+  border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.06);
+  color: #fff; font-size: 13px; font-weight: 700;
+  transition: background .2s, border-color .2s;
+}
+.game-btn:hover { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.4); }
+.game-btn svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
 
 /* ---------- Плавающая кнопка связи ---------- */
 .chat {

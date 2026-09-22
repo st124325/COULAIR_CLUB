@@ -915,6 +915,30 @@ function startSnow(canvas, area, density = 1) {
   }).observe(area);
 }
 
+/* =====================================================================
+   Мини-игра: скрипт подгружается только по нажатию кнопки
+   ===================================================================== */
+function initGame() {
+  const btn = $('#gameBtn');
+  if (!btn) return;
+  let loading = null;
+  btn.addEventListener('click', () => {
+    if (window.CoulairGame) { window.CoulairGame.open(); return; }
+    if (loading) return;
+    btn.disabled = true;
+    loading = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = new URL('js/game.js', document.baseURI).href;
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+    loading.then(() => window.CoulairGame.open())
+      .catch(() => { toast('Не удалось загрузить игру'); loading = null; })
+      .finally(() => { btn.disabled = false; });
+  });
+}
+
 /* ===================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
   $('#year').textContent = new Date().getFullYear();
@@ -932,5 +956,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initSearch();
   initSocials();
   startSnow($('#snow'), $('#footer'));
+  initGame();
   fixLocalLinks();
 });
