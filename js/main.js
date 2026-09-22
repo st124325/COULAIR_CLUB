@@ -18,13 +18,13 @@ const CONFIG = {
   heroVideo: { desktop: 'assets/hero.mp4', mobile: 'assets/hero-720.mp4' },
 
   // 360° штанов: кадры, нарезанные из видео (01.jpg … 72.jpg = полный оборот)
-  pants360: { path: 'assets/pants360/', count: 72 },
+  pants360: { path: 'assets/pants360/', count: 144 },
 
   // Главный товар
   pants: {
     id: 'pants', type: 'pants', name: 'Широкие горнолыжные штаны',
     price: 7999, oldPrice: 10000, sizes: ['M', 'L', 'XL'],
-    image: 'assets/pants360/01.jpg',
+    image: 'assets/pants360/001.jpg',
   },
 
   // Карточки. image: путь к фото (например 'assets/products/helmet-1.jpg'); null — заглушка
@@ -152,7 +152,7 @@ function initViewer() {
   const img = $('#viewerFrame');
   const bar = $('#viewerProgress');
   const { path, count } = CONFIG.pants360;
-  const src = i => path + String(i + 1).padStart(2, '0') + '.jpg';
+  const src = i => path + String(i + 1).padStart(3, '0') + '.jpg';
 
   // Предзагрузка всех кадров, чтобы вращение было без подгрузок
   const frames = [];
