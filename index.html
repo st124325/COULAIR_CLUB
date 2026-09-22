@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Coulair Club — горнолыжная одежда и снаряжение</title>
+  <meta name="description" content="Coulair Club: широкие горнолыжные штаны, шлемы и горнолыжные ботинки. Бесплатная доставка по РФ при покупке двух позиций.">
+  <link rel="icon" type="image/png" href="assets/logo-black.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ========== Бегущая строка ========== -->
+  <div class="ticker" aria-label="Новости магазина">
+    <div class="ticker__track" id="tickerTrack"></div>
+  </div>
+
+  <!-- ========== Шапка (прилипает при скролле) ========== -->
+  <header class="header" id="header">
+    <div class="header__inner">
+      <nav class="header__left" aria-label="Основное меню">
+        <button class="icon-btn header__burger" id="burgerBtn" aria-label="Открыть меню">
+          <svg viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h18"/></svg>
+        </button>
+        <a class="icon-btn header__tg" id="headerTg" href="#" target="_blank" rel="noopener" aria-label="Наш Telegram">
+          <svg viewBox="0 0 24 24" class="fill"><path d="M21.9 4.3 18.7 19.4c-.2 1.1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.3-5 9.2-8.3c.4-.4-.1-.6-.6-.2L6.1 13.1l-4.9-1.5c-1.1-.3-1.1-1.1.2-1.6L20.5 2.7c.9-.3 1.7.2 1.4 1.6Z"/></svg>
+        </a>
+        <span class="header__divider"></span>
+        <a class="header__link" href="#pants">Горнолыжные штаны</a>
+        <a class="header__link" href="#catalog" data-filter="helmet">Шлемы</a>
+        <a class="header__link" href="#catalog" data-filter="boots">Ботинки</a>
+      </nav>
+
+      <a class="header__logo" href="#top" aria-label="Coulair Club — на главную">
+        <img src="assets/logo-white.png" alt="Coulair Club">
+      </a>
+
+      <div class="header__right">
+        <button class="icon-btn" id="searchBtn" aria-label="Поиск">
+          <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>
+        </button>
+        <button class="icon-btn" id="accountBtn" aria-label="Личный кабинет">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.8-4 4-6 8-6s7.2 2 8 6"/></svg>
+        </button>
+        <button class="icon-btn cart-btn" id="cartBtn" aria-label="Корзина">
+          <svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+          <span class="cart-btn__count" id="cartCount" hidden>0</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Мобильное меню -->
+  <div class="mobile-menu" id="mobileMenu" hidden>
+    <a href="#pants">Горнолыжные штаны</a>
+    <a href="#catalog" data-filter="helmet">Шлемы</a>
+    <a href="#catalog" data-filter="boots">Ботинки</a>
+    <a href="#" class="mobile-menu__tg" data-social="telegram" target="_blank" rel="noopener">Наш Telegram →</a>
+  </div>
+
+  <main id="top">
+
+    <!-- ========== Первый экран: видео ========== -->
+    <section class="hero" id="hero">
+      <video class="hero__video" id="heroVideo" muted playsinline preload="auto" poster="assets/hero-poster.jpg"></video>
+      <div class="hero__fallback" aria-hidden="true"></div>
+      <canvas class="hero__snow" id="heroSnow" aria-hidden="true"></canvas>
+      <div class="hero__shade" aria-hidden="true"></div>
+
+      <div class="offer glass" id="offer">
+        <p class="offer__eyebrow">Старт сезона 2026/27</p>
+        <h1 class="offer__title">Специальное предложение в&nbsp;начале сезона</h1>
+        <p class="offer__text">При покупке 2&nbsp;позиций — бесплатная доставка по&nbsp;всей России.</p>
+        <a class="btn btn--light" href="#pants">Выбрать экипировку</a>
+      </div>
+    </section>
+
+    <!-- ========== Главный товар: штаны 360° ========== -->
+    <section class="product" id="pants">
+      <div class="container product__grid">
+        <div class="viewer" id="viewer" tabindex="0" aria-label="Обзор штанов на 360 градусов. Потяните влево или вправо, чтобы покрутить">
+          <img class="viewer__frame" id="viewerFrame" src="assets/pants360/01.jpg" alt="Широкие горнолыжные штаны, вид 360°" draggable="false">
+          <div class="viewer__progress" id="viewerProgress"><span></span></div>
+          <span class="viewer__badge">360°</span>
+          <div class="viewer__hint" id="viewerHint">
+            <svg viewBox="0 0 24 24"><path d="M8 7 3 12l5 5M16 7l5 5-5 5M3 12h18"/></svg>
+            Потяните, чтобы покрутить
+          </div>
+        </div>
+
+        <div class="product__info">
+          <p class="eyebrow">Главный товар сезона</p>
+          <h2 class="product__title">Широкие горнолыжные штаны</h2>
+          <p class="product__desc">Свободный крой, мембрана и проклеенные швы. Сидят поверх ботинок, не сковывают движения на склоне и в городе.</p>
+
+          <div class="price">
+            <span class="price__new">7&nbsp;999&nbsp;₽</span>
+            <s class="price__old">10&nbsp;000&nbsp;₽</s>
+            <span class="price__tag">−20%</span>
+          </div>
+
+          <div class="sizes">
+            <p class="sizes__label">Размеры в наличии</p>
+            <div class="sizes__list" id="sizeList" role="radiogroup" aria-label="Размер">
+              <button class="size" role="radio" aria-checked="false" data-size="M">M</button>
+              <button class="size" role="radio" aria-checked="false" data-size="L">L</button>
+              <button class="size" role="radio" aria-checked="false" data-size="XL">XL</button>
+            </div>
+            <p class="sizes__error" id="sizeError" hidden>Выберите размер</p>
+          </div>
+
+          <button class="btn btn--dark btn--wide" id="orderPantsBtn">Заказать</button>
+
+          <ul class="perks">
+            <li>Бесплатная доставка по РФ от 2 позиций</li>
+            <li>Примерка и обмен размера</li>
+            <li>Ответим в Telegram в течение часа</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== Категории ========== -->
+    <section class="categories" aria-label="Категории">
+      <div class="categories__list">
+        <a class="cat-btn" href="#pants">Горнолыжные штаны</a>
+        <a class="cat-btn" href="#catalog" data-filter="helmet">Шлемы</a>
+        <a class="cat-btn" href="#catalog" data-filter="boots">Ботинки</a>
+        <a class="cat-btn" href="#catalog" data-filter="all">Весь сезон</a>
+      </div>
+    </section>
+
+    <!-- ========== Карточки: шлемы и ботинки ========== -->
+    <section class="catalog" id="catalog">
+      <div class="catalog__head">
+        <h2 class="catalog__title" id="catalogTitle">Подобрано к сезону</h2>
+        <div class="catalog__arrows">
+          <button class="arrow" id="prevBtn" aria-label="Назад">
+            <svg viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg>
+          </button>
+          <button class="arrow" id="nextBtn" aria-label="Вперёд">
+            <svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="catalog__track" id="catalogTrack"></div>
+    </section>
+  </main>
+
+  <!-- ========== Футер со снегом ========== -->
+  <footer class="footer" id="footer">
+    <canvas class="footer__snow" id="snow" aria-hidden="true"></canvas>
+    <div class="footer__cta">
+      <p class="eyebrow eyebrow--light">Остались вопросы?</p>
+      <h2 class="footer__title">Напишите нам — подберём размер и&nbsp;соберём комплект</h2>
+      <a class="btn btn--light" href="#" data-social="telegram" target="_blank" rel="noopener">Написать в Telegram</a>
+    </div>
+    <div class="footer__bottom">
+      <img class="footer__logo" src="assets/logo-white.png" alt="Coulair Club">
+      <nav class="footer__nav">
+        <a href="#pants">Штаны</a>
+        <a href="#catalog" data-filter="helmet">Шлемы</a>
+        <a href="#catalog" data-filter="boots">Ботинки</a>
+      </nav>
+      <p class="footer__copy">© <span id="year"></span> Coulair Club</p>
+    </div>
+  </footer>
+
+  <!-- ========== Плавающая кнопка связи ========== -->
+  <div class="chat" id="chat">
+    <div class="chat__panel glass" id="chatPanel" hidden>
+      <p class="chat__title">Ответим на ваши вопросы здесь</p>
+      <p class="chat__sub">Обычно отвечаем в течение часа</p>
+      <div class="chat__links" id="chatLinks"></div>
+    </div>
+    <button class="chat__btn" id="chatBtn" aria-label="Связаться с нами" aria-expanded="false">
+      <svg class="chat__icon-open" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4V5Z"/></svg>
+      <svg class="chat__icon-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+
+  <!-- ========== Модалка: заявка ========== -->
+  <div class="modal" id="orderModal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__box" role="dialog" aria-modal="true" aria-labelledby="orderTitle">
+      <button class="icon-btn modal__close" data-close aria-label="Закрыть">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+
+      <form class="form" id="orderForm" novalidate>
+        <h3 class="modal__title" id="orderTitle">Оформление заявки</h3>
+        <div class="order-summary" id="orderSummary"></div>
+
+        <label class="field">
+          <span>Имя</span>
+          <input name="name" type="text" autocomplete="name" required placeholder="Как к вам обращаться">
+        </label>
+        <label class="field">
+          <span>Телефон</span>
+          <input name="phone" type="tel" autocomplete="tel" required placeholder="+7 (___) ___-__-__">
+        </label>
+        <label class="field">
+          <span>Telegram <em>(необязательно)</em></span>
+          <input name="telegram" type="text" placeholder="@username">
+        </label>
+        <label class="field">
+          <span>Город доставки</span>
+          <input name="city" type="text" autocomplete="address-level2" required placeholder="Москва">
+        </label>
+        <label class="field">
+          <span>Комментарий <em>(необязательно)</em></span>
+          <textarea name="comment" rows="2" placeholder="Рост, вес, пожелания по размеру"></textarea>
+        </label>
+        <label class="check">
+          <input type="checkbox" name="agree" required checked>
+          <span>Согласен на обработку персональных данных</span>
+        </label>
+        <p class="form__error" id="formError" hidden></p>
+        <button class="btn btn--dark btn--wide" type="submit">Отправить заявку</button>
+      </form>
+
+      <div class="form-done" id="formDone" hidden>
+        <h3 class="modal__title">Заявка принята!</h3>
+        <p>Мы свяжемся с вами в ближайшее время, чтобы подтвердить размер и доставку.</p>
+        <button class="btn btn--dark btn--wide" data-close>Хорошо</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Корзина ========== -->
+  <div class="drawer" id="cartDrawer" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <aside class="drawer__box" role="dialog" aria-modal="true" aria-labelledby="cartTitle">
+      <div class="drawer__head">
+        <h3 class="modal__title" id="cartTitle">Корзина</h3>
+        <button class="icon-btn" data-close aria-label="Закрыть">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <p class="drawer__promo" id="cartPromo"></p>
+      <ul class="drawer__list" id="cartList"></ul>
+      <div class="drawer__foot">
+        <div class="drawer__total"><span>Итого</span><strong id="cartTotal">0 ₽</strong></div>
+        <button class="btn btn--dark btn--wide" id="checkoutBtn">Оформить заявку</button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ========== Поиск ========== -->
+  <div class="search" id="searchModal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="search__box">
+      <div class="search__row">
+        <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>
+        <input id="searchInput" type="search" placeholder="Штаны, шлем, ботинки…" aria-label="Поиск по магазину">
+        <button class="icon-btn" data-close aria-label="Закрыть">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <ul class="search__results" id="searchResults"></ul>
+    </div>
+  </div>
+
+  <!-- ========== Личный кабинет ========== -->
+  <div class="modal" id="accountModal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__box modal__box--small" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
+      <button class="icon-btn modal__close" data-close aria-label="Закрыть">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+      <h3 class="modal__title" id="accountTitle">Личный кабинет</h3>
+      <p class="muted">Кабинет скоро откроется. Пока статус заказа можно узнать у нас в Telegram.</p>
+      <a class="btn btn--dark btn--wide" href="#" data-social="telegram" target="_blank" rel="noopener">Открыть Telegram</a>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

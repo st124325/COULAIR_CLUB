@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <path d="M150 60h105l10 150 60 38c14 9 20 22 20 38v14H90v-36l18-24 12-150Z" fill="#2b2b30"/>
+  <path d="M85 300h265v20H85z" fill="#1c1c20"/>
+  <path d="M140 110h110M136 160h118M132 210h122" stroke="#4a4a52" stroke-width="10" stroke-linecap="round"/>
+  <rect x="236" y="100" width="28" height="18" rx="4" fill="#5a5a62"/>
+  <rect x="240" y="150" width="28" height="18" rx="4" fill="#5a5a62"/>
+  <rect x="244" y="200" width="28" height="18" rx="4" fill="#5a5a62"/>
+  <path d="M270 240l40 24" stroke="#5a5a62" stroke-width="10" stroke-linecap="round"/>
+  <text x="200" y="370" text-anchor="middle" font-family="Manrope, sans-serif" font-size="18" fill="#9a968f">фото скоро</text>
+</svg>

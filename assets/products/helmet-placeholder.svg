@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <path d="M70 250c0-95 60-160 140-160 75 0 125 55 125 130 0 20-4 38-10 52H95c-16 0-25-8-25-22Z" fill="#2b2b30"/>
+  <path d="M112 182c20-45 58-72 104-72 30 0 55 10 74 28" fill="none" stroke="#45454c" stroke-width="10" stroke-linecap="round"/>
+  <path d="M205 96v40M250 104l-12 36M160 104l12 36" stroke="#45454c" stroke-width="8" stroke-linecap="round"/>
+  <path d="M95 272h230l-12 22H112Z" fill="#1c1c20"/>
+  <path d="M120 272c6 30 22 48 44 52" fill="none" stroke="#1c1c20" stroke-width="10" stroke-linecap="round"/>
+  <text x="200" y="370" text-anchor="middle" font-family="Manrope, sans-serif" font-size="18" fill="#9a968f">фото скоро</text>
+</svg>
