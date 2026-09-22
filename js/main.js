@@ -27,12 +27,7 @@ const CONFIG = {
     image: 'assets/pants360/001.jpg', url: './#pants', fit: 'contain',
   },
 
-  // Товары каталога берутся из catalog/catalog.js (собирается: python3 tools/build_catalog.py).
-  // Карточки-анонсы «скоро» — показываются в конце ленты на главной.
-  teasers: [
-    { type: 'helmet', name: 'Новые шлемы', note: 'Скоро в наличии' },
-    { type: 'boots',  name: 'Горнолыжные ботинки', note: 'Скоро в наличии' },
-  ],
+  // Товары каталога берутся из catalog/catalog.js — его собирает tools/build_catalog.py из папки «товары».
 
   // Куда отправлять заявки. Пусто — заявка только показывается как «принята» (и пишется в консоль).
   // Подойдёт любой URL, принимающий POST JSON: свой сервер, Formspree и т.п.
@@ -296,25 +291,13 @@ function cardHtml(p) {
     </article>`;
 }
 
-function teaserHtml(t) {
-  return `
-    <article class="card card--teaser">
-      <div class="card__media"><img src="${PLACEHOLDERS[t.type]}" alt="" loading="lazy"></div>
-      <div class="card__body">
-        <h3 class="card__name">${escapeHtml(t.name)}</h3>
-        <p class="card__price">${escapeHtml(t.note)}</p>
-      </div>
-    </article>`;
-}
-
 function renderCatalog() {
   const track = $('#catalogTrack');
   if (!track) return;
   const match = p => currentFilter === 'all' || p.type === currentFilter;
   const items = catalogItems().filter(match);
-  const teasers = CONFIG.teasers.filter(match);
   $('#catalogTitle').textContent = CATALOG_TITLES[currentFilter];
-  track.innerHTML = items.map(cardHtml).join('') + teasers.map(teaserHtml).join('');
+  track.innerHTML = items.map(cardHtml).join('');
   if (!track.innerHTML.trim()) track.innerHTML = '<p class="catalog__empty">Скоро здесь появятся товары</p>';
   track.scrollLeft = 0;
   updateArrows();

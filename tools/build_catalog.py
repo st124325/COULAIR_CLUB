@@ -2,9 +2,12 @@
 """
 Сборка каталога Coulair Club.
 
-Товары лежат в папке «товары/» — по папке на товар:
-    товары/<адрес-товара>/товар.txt   — название, цена, размер, описание
-    товары/<адрес-товара>/*.jpg|png    — фото (порядок — по имени файла, первое главное)
+Товары лежат в папке «товары/» — по папке на товар. В папке фото (*.jpg|png|webp, порядок —
+по имени файла, первое главное) и одно из двух:
+    товар.txt     — карточка с полями (шаблон в товары/_шаблон/товар.txt), точный контроль;
+    описание.txt  — текст объявления с Авито + строка «цена: 5000»; всё остальное
+                    (название, бренд, размер, состояние) сборщик разберёт сам,
+                    водяной знак Авито с фото срежет.
 Папки, начинающиеся с «_» (например «_шаблон»), пропускаются.
 
 На GitHub сборка запускается сама при каждом изменении (.github/workflows/pages.yml).
@@ -50,8 +53,21 @@ def slugify(name):
     return re.sub(r'[^a-z0-9]+', '-', s).strip('-') or 'tovar'
 
 
+COPY_RE = re.compile(r'\s*\((?:копирование|копия|copy)\s*(\d+)\)', re.I)
+
+
 def natural_key(path):
-    return [int(t) if t.isdigit() else t.lower() for t in re.split(r'(\d+)', path.name)]
+    # «Фото.png», «Фото (Копирование 1).png», … — оригинал первым, копии по номеру
+    m = COPY_RE.search(path.stem)
+    base = COPY_RE.sub('', path.stem)
+    return [int(t) if t.isdigit() else t.lower() for t in re.split(r'(\d+)', base)] + [int(m.group(1)) if m else 0]
+
+
+EMOJI_RE = re.compile('[\U0001F000-\U0001FFFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D\u20E3]')
+
+
+def clean(text):
+    return re.sub(r'\s{2,}', ' ', EMOJI_RE.sub('', text)).strip(' —-')
 
 
 class ProductError(Exception):
@@ -69,7 +85,8 @@ def to_int(v):
     return int(v) if v else None
 
 
-def parse_product(folder: Path):
+def read_card(folder: Path):
+    """товар.txt → (meta, features, description)."""
     where = f'товары/{folder.name}/товар.txt'
     text = (folder / 'товар.txt').read_text(encoding='utf-8-sig')
     head, _, body = text.partition('\n---')
@@ -85,6 +102,80 @@ def parse_product(folder: Path):
             raise ProductError(f'{where}: непонятная строка «{line.strip()}» — нужно «ключ: значение»')
         key = k.strip().lower()
         meta[key] = v.strip()
+    return meta, features, [p.strip() for p in body.strip().split('\n\n') if p.strip()]
+
+
+STOP_RE = re.compile(r'^(почему стоит|📦|оперативная отправка|отправим)', re.I)
+ABOUT_RE = re.compile(r'^о (шлеме|товаре|ботинках|штанах)\s*:?$', re.I)
+
+
+def read_avito(folder: Path):
+    """описание.txt (объявление с Авито) → (meta, features, description)."""
+    lines = [l.strip() for l in (folder / 'описание.txt').read_text(encoding='utf-8-sig').splitlines() if l.strip()]
+    meta = {'авито': 'да'}
+    features, desc, about = [], [], False
+    raw_title = lines[0] if lines else folder.name
+    full = ' '.join(lines).lower()
+    for line in lines[1:]:
+        k, sep, v = line.partition(':')
+        key = clean(k).lower()
+        if sep and key in ('цена', 'старая цена', 'в наличии', 'размер', 'бренд', 'модель', 'тип', 'скрыть', 'порядок', 'бейдж', 'состояние'):
+            if key != 'модель':
+                meta[key] = clean(v)
+            continue
+        if STOP_RE.match(clean(line)) or STOP_RE.match(line):
+            about = None                       # дальше — реклама профиля и доставка Авито
+            continue
+        if about is None:
+            if line.lower().startswith('цена'):
+                meta['цена'] = line
+            continue
+        if ABOUT_RE.match(clean(line)):
+            about = True
+            continue
+        (features if about else desc).append(clean(line).rstrip('.'))
+    features = [f for f in features if f]
+    desc = [d if d.endswith(('.', '!', '?')) else d + '.' for d in desc if d]
+
+    # название: «Горнолыжный / сноубордический шлем X (Новый) ⛷️» → «Шлем X»
+    title = clean(raw_title)
+    title = re.sub(r'^(горнолыжн\w*|сноубордическ\w*|[/\s,])+', '', title, flags=re.I)
+    is_new = bool(re.search(r'\(\s*нов\w*\s*\)', title, re.I)) or 'абсолютно новый' in full
+    title = re.sub(r'\s*\(\s*нов\w*\s*\)', '', title, flags=re.I)
+    meta['название'] = title[:1].upper() + title[1:]
+    low = title.lower()
+    meta.setdefault('тип', next((w for w in ('шлем', 'ботинки', 'штаны') if w in low), ''))
+    if is_new:
+        meta.setdefault('состояние', 'Новый, с бирками' if 'бирк' in full else 'Новый')
+        meta.setdefault('бейдж', 'Новый')
+    elif '10/10' in full or 'состояние нового' in full or 'как новый' in full:
+        meta.setdefault('состояние', '10/10, как новый')
+        meta.setdefault('бейдж', 'Б/у · как новый')
+    meta.setdefault('в наличии', '1')
+    # «L(59-63)» → «L (59–63 см)»; пояснение без цифр в скобках уходит в особенности
+    size = meta.get('размер', '')
+    m = re.match(r'^\s*([^()]+?)\s*(?:\((.*)\))?\s*$', size)
+    if m:
+        base, note = m.group(1).strip(), (m.group(2) or '').strip()
+        if note and re.search(r'\d', note):
+            note = re.sub(r'\s*-\s*', '–', note)
+            meta['размер'] = f'{base} ({note}{"" if "см" in note else " см"})'
+        else:
+            meta['размер'] = base
+            if note:
+                features.append(note[:1].upper() + note[1:])
+    if meta.get('бренд') and '·' not in meta['бренд']:
+        meta['бренд'] = re.sub(r'\s*\((.+)\)', r' · \1', meta['бренд'])
+    return meta, features, desc
+
+
+def parse_product(folder: Path):
+    if (folder / 'товар.txt').exists():
+        where = f'товары/{folder.name}/товар.txt'
+        meta, features, description = read_card(folder)
+    else:
+        where = f'товары/{folder.name}/описание.txt'
+        meta, features, description = read_avito(folder)
 
     if meta.get('скрыть', '').lower() in YES:
         return None
@@ -102,7 +193,7 @@ def parse_product(folder: Path):
 
     stock = to_int(meta.get('в наличии'))
     return {
-        'id': slugify(folder.name),
+        'id': slugify(re.sub(r'(?i)горнолыжн\w*|сноубордическ\w*', '', folder.name)),
         'folder': folder,
         'avito': meta.get('авито', '').lower() in YES,
         'sources': images,
@@ -118,7 +209,7 @@ def parse_product(folder: Path):
         'stock': stock,
         'sold': stock == 0,
         'features': features,
-        'description': [p.strip() for p in body.strip().split('\n\n') if p.strip()],
+        'description': description,
     }
 
 
@@ -326,8 +417,8 @@ def main():
     folders = sorted(f for f in SOURCE.iterdir() if f.is_dir() and not f.name.startswith('_'))
     products, errors = [], []
     for f in folders:
-        if not (f / 'товар.txt').exists():
-            errors.append(f'товары/{f.name}: нет файла товар.txt (скопируйте из товары/_шаблон)')
+        if not (f / 'товар.txt').exists() and not (f / 'описание.txt').exists():
+            print(f'  ! {f.name}: пропущен — нет ни товар.txt, ни описание.txt')
             continue
         try:
             p = parse_product(f)
