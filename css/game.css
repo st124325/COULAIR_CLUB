@@ -190,3 +190,5 @@
 }
 .game.is-cine .game__hud, .game.is-cine .game__warn, .game.is-cine .game__touch,
 .game.is-cine .game__view--hud { opacity: 0; pointer-events: none; transition: opacity .3s; }
+.game__credits { margin: 10px 0 0; font-size: 11px; color: #9a968f; }
+.game__credits a { color: inherit; text-decoration: underline; }

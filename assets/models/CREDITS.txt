@@ -2,3 +2,8 @@
 из CC0-ассетов Quaternius — https://quaternius.com:
   Universal Base Characters (Standard), Universal Animation Library (Standard)
 Лицензия исходников: CC0 1.0 (public domain).
+
+rider-board-onirix.glb — «Snowboarder Onirix» by onirix,
+https://sketchfab.com/3d-models/b8a85b8427c64d098ca598188baca93c
+Лицензия: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
+Изменения: убран меш снежного шлейфа, анимации сохранены, экспорт в GLB.

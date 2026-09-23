@@ -786,7 +786,7 @@ function makeHelmet(M, shellMat, accentMat) {
 
 /* ---------------- райдер ---------------- */
 class Rider {
-  constructor(kind, R, M) {
+  constructor(kind, R, M, model = kind) {
     this.kind = kind;
     this.root = new THREE.Group();          // позиция на склоне, курс, крен
     this.pivot = new THREE.Group();         // центр вращения для трюков
@@ -892,7 +892,7 @@ class Rider {
     }
     this.tmp = { a: V(), b: V(), c: V(), d: V() };
     this.proc = [...this.thigh, ...this.shin, ...this.knee, ...this.boot, this.pelvis, this.torso, ...this.upper, ...this.fore, ...this.elbow, ...this.glove, this.head];
-    loadRiderModel(kind).then(g => g && this.attachModel(g));
+    loadRiderModel(model).then(g => g && this.attachModel(g));
   }
 
   attachModel(gltf) {
@@ -900,6 +900,7 @@ class Rider {
     this.skin = new THREE.Group();
     this.skin.add(scene);
     this.inner.add(this.skin);
+    if (gltf.animations.some(c => c.name === 'Turn_Left')) return this.attachOwnAnim(gltf);
     this.bones = {};
     scene.traverse(o => {
       if (o.isBone) this.bones[o.name] = o;
@@ -923,6 +924,43 @@ class Rider {
     for (const o of this.proc) o.visible = false;
     this.helmet.visible = false;
     this.setShield(this._shield);
+  }
+
+  // модель с собственными анимациями катания: повороты — смешивание клипов, без IK
+  attachOwnAnim(gltf) {
+    this.flavor = 'own';
+    const scene = gltf.scene;
+    scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+    this.skin.rotation.y = 0;                                // доска вдоль склона, носки — как у процедурного райдера
+    this.mixer = new THREE.AnimationMixer(scene);
+    this.clips = {};
+    for (const c of gltf.animations) this.clips[c.name] = this.mixer.clipAction(c);
+    for (const n of ['Fall', 'Victory', 'Goal']) if (this.clips[n]) { this.clips[n].setLoop(THREE.LoopOnce, 1); this.clips[n].clampWhenFinished = true; }
+    this.ride3 = ['Idle', 'Turn_Left', 'Turn_Right'].map(n => this.clips[n]);
+    this.ride3.forEach(a => { a.play(); a.setEffectiveWeight(0); });
+    this.special = null;
+    for (const o of this.proc) o.visible = false;
+    this.helmet.visible = false;
+    if (this.board) this.board.visible = false;
+  }
+
+  updateOwn(pose) {
+    const dt = pose.dt || 0.016;
+    const map = { Death01: 'Fall', Swim_Idle_Loop: 'Fall', Dance_Loop: 'Idle_2_Victory', Hit_Head: 'Fall' };
+    const want = pose.anim ? (map[pose.anim] || pose.anim) : null;
+    if (want !== this.special) {
+      if (this.special && this.clips[this.special]) this.clips[this.special].fadeOut(0.2);
+      if (want && this.clips[want]) this.clips[want].reset().setEffectiveWeight(1).fadeIn(0.15).play();
+      this.special = want;
+    }
+    // повороты: вес клипа — по направлению курса
+    const w = clamp(pose.look * 1.8, -1, 1);
+    const k = want ? 0 : 1;
+    this.ride3[0].setEffectiveWeight((1 - Math.abs(w)) * k);
+    this.ride3[1].setEffectiveWeight(Math.max(0, w) * k);
+    this.ride3[2].setEffectiveWeight(Math.max(0, -w) * k);
+    this.mixer.update(dt);
+    if (this.board) this.board.visible = false;
   }
 
   play(name, fade = 0.25) {
@@ -1060,6 +1098,7 @@ class Rider {
     const headFwd = this.kind === 'ski' ? V(Math.sin(pose.look * 0.4), -0.25, 1) : V(0.35, -0.2, 1);
     const hp = this.head.position.clone();
     orient(this.head, hp, hp.clone().add(V(0, 1, 0)), headFwd.normalize());
+    if (this.flavor === 'own') { this.updateOwn(pose); return; }
     if (this.skin) {
       this._headDir = V(0, 1, 0).addScaledVector(headFwd, 0.35).normalize();
       if (pose.anim) this.animate(pose.anim, pose.dt || 0.016);
@@ -1981,9 +2020,11 @@ export function create(root, canvas2d) {
     /* --- райдер --- */
     // в меню танцует сноубордистка
     const menu = v.state === 'start';
-    const shown = menu ? 'board' : rider;
+    const shown = menu ? 'dancer' : rider;
     if (!riders[shown]) {
-      riders[shown] = new Rider(shown, v.RIDERS[shown], M);
+      riders[shown] = shown === 'dancer' ? new Rider('board', v.RIDERS.board, M, 'board')
+        : shown === 'board' ? new Rider('board', v.RIDERS.board, M, 'board-onirix')
+        : new Rider(shown, v.RIDERS[shown], M);
       world.add(riders[shown].root);
     }
     for (const k in riders) riders[k].root.visible = k === shown;
@@ -2057,6 +2098,7 @@ export function create(root, canvas2d) {
         R.pivot.rotation.x = e * Math.PI * 2;
         R.pivot.position.y = 0.95 + Math.sin(k * Math.PI) * 0.8;
         pose.anim = 'Death01';
+        if (R.flavor === 'own') { R.pivot.rotation.x = 0; R.pivot.position.y = 0.95; }   // своё падение — без кувырка
       } else {
         R.pivot.rotation.x = e * Math.PI * 2.1;
         R.pivot.rotation.z = e * Math.PI * 0.5;
