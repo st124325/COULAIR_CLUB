@@ -2,23 +2,90 @@
    Coulair Run 3D — объёмная графика мини-игры на Three.js.
    Правила и физика остаются в js/game.js, здесь только отрисовка того же мира.
    Модуль грузится при первом включении «3D» в игре.
+   Все модули — из одной сборки three@0.169.0 на jsDelivr (+esm), чтобы THREE был один.
    ===================================================================== */
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.min.js';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
+import { EffectComposer } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/postprocessing/EffectComposer.js/+esm';
+import { RenderPass } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/postprocessing/RenderPass.js/+esm';
+import { UnrealBloomPass } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/postprocessing/UnrealBloomPass.js/+esm';
+import { OutputPass } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/postprocessing/OutputPass.js/+esm';
+import { ShaderPass } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/postprocessing/ShaderPass.js/+esm';
+import { Sky } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/objects/Sky.js/+esm';
+import { mergeGeometries, mergeVertices } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/utils/BufferGeometryUtils.js/+esm';
 
 const S = 0.08;              // игровая единица → метры
 const HZ = 0.035;            // высота прыжка (игровая z) → метры
 const SLOPE = 0.27;          // уклон трассы, рад (~15°)
 const GROUND_TILE = 24;      // размер тайла снега, м
 const GROOVE_TILE = 3;       // тайл вельвета от ратрака, м
-const SUN = new THREE.Vector3(0.55, 0.5, 0.68).normalize();
+const SUN = new THREE.Vector3(0.62, 0.45, 0.64).normalize();   // солнце слева-спереди, ~27° над горизонтом
+const QUALITY_KEY = 'coulair-run-q';                           // 'high' | 'medium' | 'low' — зафиксировать качество
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const damp = (a, b, k, dt) => lerp(a, b, 1 - Math.exp(-k * dt));
 const rng = seed => () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const col = hex => new THREE.Color(hex);
+const glslVec = v => `vec3(${v.x.toFixed(4)}, ${v.y.toFixed(4)}, ${v.z.toFixed(4)})`;
+
+/* ---------------- туман: гуще в долине, тёплый ореол со стороны солнца ---------------- */
+THREE.ShaderChunk.fog_pars_vertex = `#ifdef USE_FOG
+  varying float vFogDepth; varying vec3 vFogWorld;
+#endif`;
+THREE.ShaderChunk.fog_vertex = `#ifdef USE_FOG
+  vFogDepth = - mvPosition.z;
+  vFogWorld = (inverse(viewMatrix) * mvPosition).xyz;
+#endif`;
+THREE.ShaderChunk.fog_pars_fragment = `#ifdef USE_FOG
+  uniform vec3 fogColor; varying float vFogDepth; varying vec3 vFogWorld;
+  #ifdef FOG_EXP2
+    uniform float fogDensity;
+  #else
+    uniform float fogNear; uniform float fogFar;
+  #endif
+#endif`;
+THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
+  #ifdef FOG_EXP2
+    vec3 fogRay = vFogWorld - cameraPosition;
+    float fogDist = length(fogRay);
+    float fogH = clamp(exp(-(vFogWorld.y - cameraPosition.y + 20.0) * 0.012), 0.4, 2.5);
+    float fogFactor = 1.0 - exp(-fogDensity * fogDist * fogH);
+    float fogSun = pow(max(dot(fogRay / max(fogDist, 1e-3), ${glslVec(SUN)}), 0.0), 6.0);
+    vec3 fogCol = mix(fogColor, vec3(1.0, 0.93, 0.82) * 1.25, fogSun * 0.55);
+    gl_FragColor.rgb = mix(gl_FragColor.rgb, fogCol, clamp(fogFactor, 0.0, 1.0));
+  #else
+    gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, smoothstep(fogNear, fogFar, vFogDepth));
+  #endif
+#endif`;
+
+/* ---------------- шум Перлина для скал и гор ---------------- */
+function perlin(seed) {
+  const r = rng(seed), perm = [...Array(256).keys()], p = new Uint8Array(512);
+  for (let i = 255; i > 0; i--) { const j = (r() * (i + 1)) | 0; [perm[i], perm[j]] = [perm[j], perm[i]]; }
+  for (let i = 0; i < 512; i++) p[i] = perm[i & 255];
+  const fade = t => t * t * t * (t * (t * 6 - 15) + 10);
+  const grad = (h, x, y, z) => { const u = h < 8 ? x : y, v = h < 4 ? y : h === 12 || h === 14 ? x : z; return ((h & 1) ? -u : u) + ((h & 2) ? -v : v); };
+  return (x, y, z) => {
+    const fx = Math.floor(x), fy = Math.floor(y), fz = Math.floor(z);
+    const X = fx & 255, Y = fy & 255, Z = fz & 255;
+    x -= fx; y -= fy; z -= fz;
+    const u = fade(x), v = fade(y), w = fade(z);
+    const A = p[X] + Y, AA = p[A] + Z, AB = p[A + 1] + Z, B = p[X + 1] + Y, BA = p[B] + Z, BB = p[B + 1] + Z;
+    return lerp(
+      lerp(lerp(grad(p[AA] & 15, x, y, z), grad(p[BA] & 15, x - 1, y, z), u), lerp(grad(p[AB] & 15, x, y - 1, z), grad(p[BB] & 15, x - 1, y - 1, z), u), v),
+      lerp(lerp(grad(p[AA + 1] & 15, x, y, z - 1), grad(p[BA + 1] & 15, x - 1, y, z - 1), u), lerp(grad(p[AB + 1] & 15, x, y - 1, z - 1), grad(p[BB + 1] & 15, x - 1, y - 1, z - 1), u), v),
+      w);
+  };
+}
+const fbm = (n, x, y, z, oct = 4) => { let s = 0, a = 0.5, f = 1; for (let i = 0; i < oct; i++) { s += a * n(x * f, y * f, z * f); f *= 2.03; a *= 0.5; } return s; };
+const ridged = (n, x, z, oct = 6) => {
+  let s = 0, a = 0.5, f = 1, prev = 1;
+  for (let i = 0; i < oct; i++) { let v = 1 - Math.abs(n(x * f, 0.37 * i, z * f)); v *= v; s += v * a * prev; prev = v; f *= 2.1; a *= 0.5; }
+  return s;
+};
 
 /* ---------------- текстуры, нарисованные на canvas ---------------- */
 function canvasTex(w, h, paint, { repeat = false, srgb = true } = {}) {
@@ -252,83 +319,210 @@ function ik(a, end, l1, l2, hint, outMid) {
 }
 
 /* ---------------- модели окружения ---------------- */
-function pineGeometry(seed) {
-  const r = rng(seed * 97 + 13);
-  const parts = [];
-  const trunk = new THREE.CylinderGeometry(0.14, 0.26, 2.4, 7);
-  trunk.translate(0, 1.2, 0);
-  parts.push(paint(trunk, '#5b3a22', c => c.offsetHSL(0, 0, (r() - 0.5) * 0.06)));
-  const tiers = 6 + ((r() * 3) | 0);
-  const top = 8.2, base = 1.0;
-  const snowy = 0.55 + r() * 0.45;
-  const hue = (r() - 0.5) * 0.03;
-  for (let i = 0; i < tiers; i++) {
-    const t = i / (tiers - 1);
-    const hgt = 2.5 - t * 1.2;
-    const y0 = base + t * (top - base - hgt * 0.8);
-    const rad = (2.7 - t * 2.25) * (0.9 + r() * 0.2);
-    const radial = 12;
-    const cone = new THREE.ConeGeometry(rad, hgt, radial, 3, true);
-    const p = cone.attributes.position;
-    for (let k = 0; k < p.count; k++) {
-      const ring = Math.floor(k / (radial + 1)), j = k % (radial + 1);
-      let x = p.getX(k), y = p.getY(k), z = p.getZ(k);
-      if (ring === 3) {                      // нижний край — зубцами лап, концы провисают
-        const tooth = j % 2 ? 0.78 : 1.08;
-        x *= tooth; z *= tooth; y -= j % 2 ? 0 : 0.28 + r() * 0.1;
-      } else if (ring > 0) {
-        const k2 = 0.93 + r() * 0.12; x *= k2; z *= k2;
-      }
-      p.setXYZ(k, x, y, z);
+// ветка ели сверху: стебель от ствола (слева) к кончику, веточки с хвоей, снег по центру
+function branchTexture(seed, snowAmount) {
+  return canvasTex(512, 256, (g, w, h) => {
+    const r = rng(seed * 71 + 5);
+    const cy = h / 2;
+    const stemY = t => cy + t * t * 8;
+    g.lineCap = 'round';
+    const twigs = [];
+    for (let i = 0; i < 18; i++) {
+      const t = 0.03 + (i / 18) * 0.92;
+      for (const s of [-1, 1]) twigs.push({ t, s, len: (1 - t * 0.5) * h * 0.44 * (0.75 + r() * 0.35), a: s * (0.75 + r() * 0.35) });
     }
-    cone.translate(0, y0 + hgt / 2, 0);
-    const dark = col('#123a24'), light = col('#2f7a4c');
-    parts.push(paint(cone, '#23633e', (c, x, y) => {
-      const k = clamp((y - y0) / hgt, 0, 1);
-      c.copy(dark).lerp(light, k * 0.9 + r() * 0.15).offsetHSL(hue, 0, (r() - 0.5) * 0.04);
-    }));
-    // снежная шапка на ярусе: неровный край, синеватый низ
-    const cap = new THREE.ConeGeometry(rad * (0.72 + 0.1 * snowy), hgt * 0.55, radial, 1, true);
-    const cp = cap.attributes.position;
-    for (let k = 0; k < cp.count; k++) {
-      if (k >= radial + 1) {
-        const f = 0.55 + r() * 0.45 * snowy;
-        cp.setXYZ(k, cp.getX(k) * f, cp.getY(k) - r() * 0.18, cp.getZ(k) * f);
+    const needles = (x0, y0, ang, len, shade, width, density) => {
+      g.lineWidth = width;
+      const steps = Math.max(4, (len / 3) | 0);
+      for (let k = 0; k < steps; k++) {
+        const u = k / steps, px = x0 + Math.cos(ang) * len * u, py = y0 + Math.sin(ang) * len * u;
+        const nl = (10 + r() * 8) * (1 - u * 0.35);
+        for (const side of [-1, 1]) {
+          if (r() > density) continue;
+          const a2 = ang + side * (0.8 + r() * 0.5);
+          const c = shade[(r() * shade.length) | 0];
+          g.strokeStyle = c;
+          g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(a2) * nl, py + Math.sin(a2) * nl); g.stroke();
+        }
       }
+    };
+    const dark = ['#0c2616', '#11301c', '#173a22', '#1c4228'];
+    const light = ['#2a6238', '#347244', '#3f7f4c', '#4e8c56', '#2f5f3a'];
+    // стебель
+    g.strokeStyle = '#4a3322'; g.lineWidth = 4;
+    g.beginPath(); for (let t = 0; t <= 1; t += 0.05) { const x = 6 + t * (w - 24); t ? g.lineTo(x, stemY(t)) : g.moveTo(x, stemY(t)); } g.stroke();
+    for (const pass of [0, 1]) {
+      for (const tw of twigs) {
+        const x0 = 6 + tw.t * (w - 24), y0 = stemY(tw.t);
+        if (!pass) { g.strokeStyle = '#3a2a1c'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 + Math.cos(tw.a) * tw.len, y0 + Math.sin(tw.a) * tw.len); g.stroke(); }
+        needles(x0, y0, tw.a, tw.len, pass ? light : dark, pass ? 1.6 : 3.2, pass ? 0.6 : 1);
+      }
+      needles(6, cy, 0, w - 24, pass ? light : dark, pass ? 1.3 : 2.4, pass ? 0.5 : 0.9);
     }
-    cap.translate(0, y0 + hgt - hgt * 0.55 / 2 + 0.05, 0);
-    const white = col('#ffffff'), blue = col('#c7d6ee');
-    parts.push(paint(cap, '#ffffff', (c, x, y) => c.copy(blue).lerp(white, clamp((y - (y0 + hgt * 0.45)) / (hgt * 0.5), 0, 1))));
-  }
-  const mound = new THREE.SphereGeometry(1.1, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2);
-  mound.scale(1, 0.22, 1);
-  parts.push(paint(mound, '#f4f8fd'));
-  return merge(parts);
+    // снег лежит по центру ветки, у ствола толще; синеватые края, светлые вершины комьев
+    for (let i = 0; i < 90 * snowAmount; i++) {
+      const t = Math.pow(r(), 1.35) * 0.95;
+      const x = 6 + t * (w - 24), y = stemY(t) + (r() - 0.5) * h * 0.42 * (1 - t * 0.5);
+      const rad = (1 - t) * 15 + 4 + r() * 6;
+      const gr = g.createRadialGradient(x - rad * 0.2, y - rad * 0.25, 0, x, y, rad);
+      gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.6, 'rgba(240,246,255,.95)'); gr.addColorStop(0.85, 'rgba(196,214,238,.9)'); gr.addColorStop(1, 'rgba(196,214,238,0)');
+      g.fillStyle = gr;
+      g.beginPath(); g.ellipse(x, y, rad * (1.2 + r() * 0.6), rad, (r() - 0.5) * 0.6, 0, Math.PI * 2); g.fill();
+    }
+  });
 }
 
-function rockGeometry(seed) {
-  const r = rng(seed * 31 + 7);
-  const g = new THREE.IcosahedronGeometry(1, 2);
-  const flat = 0.5 + r() * 0.2;
-  jitter(g, (x, y, z) => {
-    const k = 0.78 + r() * 0.35;
-    return [x * k * (1 + r() * 0.1), Math.max(-0.25, y * k * flat), z * k];
+function barkTexture() {
+  const t = canvasTex(128, 256, (g, w, h) => {
+    const r = rng(9);
+    g.fillStyle = '#4a3122'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 180; i++) {
+      const x = r() * w, y = r() * h, len = 20 + r() * 60;
+      g.strokeStyle = r() < 0.5 ? 'rgba(20,12,6,.55)' : 'rgba(120,90,64,.35)'; g.lineWidth = 1 + r() * 3;
+      g.beginPath(); g.moveTo(x, y); g.bezierCurveTo(x + (r() - 0.5) * 8, y + len * 0.3, x + (r() - 0.5) * 8, y + len * 0.6, x + (r() - 0.5) * 6, y + len); g.stroke();
+    }
+  }, { repeat: true });
+  t.repeat.set(2, 3);
+  return t;
+}
+
+// ткань куртки: плетение как карта нормалей
+let FABRIC = null;
+function fabricNormal() {
+  if (FABRIC) return FABRIC;
+  FABRIC = canvasTex(128, 128, (g, S0) => {
+    const img = g.createImageData(S0, S0), d = img.data, r = rng(4);
+    for (let y = 0; y < S0; y++) for (let x = 0; x < S0; x++) {
+      const cx = Math.floor(x / 4), cy = Math.floor(y / 4), odd = (cx + cy) & 1;
+      const nx = odd ? Math.sin(((x % 4) / 4) * Math.PI * 2) * 0.5 : 0;
+      const ny = odd ? 0 : Math.sin(((y % 4) / 4) * Math.PI * 2) * 0.5;
+      const i = (y * S0 + x) * 4;
+      d[i] = (nx + (r() - 0.5) * 0.1) * 127 + 128; d[i + 1] = (ny + (r() - 0.5) * 0.1) * 127 + 128; d[i + 2] = 255; d[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+  }, { repeat: true, srgb: false });
+  FABRIC.repeat.set(6, 6);
+  return FABRIC;
+}
+
+// мягкая контактная тень под объектами
+function aoTexture() {
+  return canvasTex(128, 128, g => {
+    const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.35, 'rgba(0,0,0,.6)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
   });
-  const pos = g.attributes.position, n = pos.count;
-  const c = new Float32Array(n * 3), a = V(), b = V(), d = V(), nrm = V();
-  const rockA = col('#8b929c'), rockB = col('#4b5058'), snow = col('#f6f9fd'), snowB = col('#d6e2f2');
-  const tmp = new THREE.Color();
-  for (let i = 0; i < n; i += 3) {
-    a.fromBufferAttribute(pos, i); b.fromBufferAttribute(pos, i + 1); d.fromBufferAttribute(pos, i + 2);
-    nrm.subVectors(d, b).cross(V().subVectors(a, b)).normalize();
-    const yMid = (a.y + b.y + d.y) / 3;
-    if (nrm.y > 0.62 - r() * 0.15 && yMid > -0.05) tmp.copy(snowB).lerp(snow, nrm.y);
-    else tmp.copy(rockB).lerp(rockA, clamp(0.5 + nrm.x * 0.4 + (r() - 0.5) * 0.4, 0, 1));
-    for (let k = 0; k < 3; k++) { c[(i + k) * 3] = tmp.r; c[(i + k) * 3 + 1] = tmp.g; c[(i + k) * 3 + 2] = tmp.b; }
+}
+
+const flat = g => (g.index ? g.toNonIndexed() : g);
+
+/* ---------------- ель из «карточек»-веток: ствол, тёмная сердцевина, лапы с хвоей и снегом ---------------- */
+function treeGeometry(seed) {
+  const r = rng(seed * 131 + 7);
+  const H = 8.2 + r() * 1.2;
+  const maxR = 2.4 + r() * 0.5;
+  const trunk = new THREE.CylinderGeometry(0.09, 0.26, H * 0.97, 9, 1).translate(0, (H * 0.97) / 2, 0);
+  const fill = new THREE.ConeGeometry(maxR * 0.48, H * 0.84, 10, 1).translate(0, 1.0 + (H * 0.84) / 2, 0);
+  const cards = [];
+  const whorls = 14 + ((r() * 4) | 0);
+  for (let i = 0; i < whorls; i++) {
+    const t = i / (whorls - 1);
+    const y = 1.0 + t * (H - 1.1);
+    const L = Math.max(0.3, maxR * Math.pow(1 - t, 0.85) * (0.85 + r() * 0.3));
+    const n = t > 0.88 ? 4 : 6 + ((r() * 3) | 0);
+    const off = r() * Math.PI * 2;
+    for (let k = 0; k < n; k++) {
+      const az = off + (k / n) * Math.PI * 2 + (r() - 0.5) * 0.5;
+      const droop = t > 0.9 ? -0.7 : 0.16 + (1 - t) * 0.22 + (r() - 0.5) * 0.12;
+      const wd = L * (0.55 + r() * 0.15);
+      const p = new THREE.PlaneGeometry(L, wd, 4, 1).rotateX(-Math.PI / 2).translate(L / 2, 0, 0);
+      const pa = p.attributes.position;
+      for (let j = 0; j < pa.count; j++) { const x = pa.getX(j); pa.setY(j, pa.getY(j) - Math.pow(x / L, 2) * L * 0.2); }
+      p.rotateZ(-droop).rotateY(az).translate(0, y, 0);
+      cards.push(p);
+    }
   }
-  g.setAttribute('color', new THREE.BufferAttribute(c, 3));
-  const drift = paint(new THREE.SphereGeometry(1.25, 12, 5, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.22, 0.9).translate(0.2, -0.22, -0.3), '#f3f7fc');
-  return merge([g, drift]);
+  const cardsGeo = mergeGeometries(cards);
+  // нормали «облаком» — крона освещается объёмно, а не плоскими листами
+  const cp = cardsGeo.attributes.position, cn = cardsGeo.attributes.normal, nv = V();
+  for (let j = 0; j < cp.count; j++) {
+    nv.set(cp.getX(j) * 0.9, 1.0, cp.getZ(j) * 0.9).normalize();
+    cn.setXYZ(j, nv.x, nv.y, nv.z);
+  }
+  const mound = new THREE.SphereGeometry(1.3, 14, 4, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.18, 1);
+  return mergeGeometries([trunk, fill, cardsGeo, mound].map(flat), true);
+}
+
+/* ---------------- скала: шумовой рельеф, трещины темнее, снег на пологих гранях ---------------- */
+function rockGeometry(seed) {
+  const n = perlin(seed * 13 + 1), r = rng(seed * 31 + 7);
+  let g = new THREE.IcosahedronGeometry(1, 9);
+  g.deleteAttribute('uv'); g.deleteAttribute('normal');
+  g = mergeVertices(g);
+  const pos = g.attributes.position, disp = new Float32Array(pos.count);
+  const fl = 0.65 + r() * 0.2, sx = 0.95 + r() * 0.3, sz = 0.8 + r() * 0.3, o = r() * 10;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    let d = 0.82 + fbm(n, x * 1.2 + o, y * 1.2, z * 1.2, 3) * 0.55;
+    d -= Math.abs(n(x * 4 + o, y * 4, z * 4)) * 0.09;                 // трещины и сколы
+    d += Math.max(0, n(x * 2.2, y * 2.2 + o, z * 2.2)) * 0.12;         // выступающие грани
+    disp[i] = d;
+    pos.setXYZ(i, x * d * sx, Math.max(-0.28, y * d * fl), z * d * sz);
+  }
+  g.computeVertexNormals();
+  const nrm = g.attributes.normal, colors = new Float32Array(pos.count * 3);
+  const dark = col('#3d4148'), light = col('#8f949a'), warm = col('#7d7264'), snow = col('#f5f8fd'), snowB = col('#d4e0f1'), c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    const v = clamp(0.5 + fbm(n, x * 3, y * 3 + 5, z * 3, 3) * 0.9, 0, 1);
+    c.copy(dark).lerp(light, v).lerp(warm, clamp(n(x * 1.5 + 9, y, z) * 1.5, 0, 0.5));
+    c.multiplyScalar(0.55 + clamp((disp[i] - 0.7) * 1.5, 0, 0.45));           // впадины темнее
+    const sk = smooth(0.72, 0.9, nrm.getY(i) + n(x * 5, y * 5, z * 5 + 3) * 0.3) * (y > 0.05 ? 1 : 0);
+    c.lerp(c.clone().copy(snowB).lerp(snow, nrm.getY(i)), sk);
+    colors.set([c.r, c.g, c.b], i * 3);
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  return g;
+}
+
+/* ---------------- горы: кольцо рельефа из «гребневого» шума вокруг камеры ---------------- */
+function mountainGeometry({ inner, outer, height, base, seed, scale, rock, forest, snowLine, haze, hazeK }) {
+  const n = perlin(seed);
+  const NA = 440, NR = 46;
+  const pos = new Float32Array(NA * (NR + 1) * 3);
+  let k = 0;
+  for (let ir = 0; ir <= NR; ir++) {
+    const t = ir / NR, rad = lerp(inner, outer, Math.pow(t, 0.85));
+    for (let ia = 0; ia < NA; ia++) {
+      const a = (ia / NA) * Math.PI * 2, x = Math.cos(a) * rad, z = Math.sin(a) * rad;
+      const mask = smooth(0, 0.3, t) * (1 - 0.2 * t);
+      const h = ridged(n, x / scale, z / scale, 7);
+      pos[k++] = x; pos[k++] = base + height * mask * (0.08 + h * 0.95); pos[k++] = z;
+    }
+  }
+  const idx = [];
+  for (let ir = 0; ir < NR; ir++) for (let ia = 0; ia < NA; ia++) {
+    const i0 = ir * NA + ia, i1 = ir * NA + ((ia + 1) % NA), i2 = i0 + NA, i3 = i1 + NA;
+    idx.push(i0, i1, i2, i1, i3, i2);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  const nrm = g.attributes.normal, colors = new Float32Array(pos.length), c = new THREE.Color();
+  const cRock = col(rock), cForest = col(forest || rock), cSnow = col('#f3f7ff'), cSnowB = col('#c9d8ee'), cHaze = col(haze);
+  for (let i = 0; i < pos.length / 3; i++) {
+    const x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2];
+    const hn = clamp((y - base) / height, 0, 1), ny = nrm.getY(i);
+    const v = 0.5 + n(x * 0.02, 3.3, z * 0.02) * 0.6;
+    c.copy(cForest).lerp(cRock, smooth(0.15, 0.45, hn + (0.8 - ny))).multiplyScalar(0.75 + v * 0.4);
+    const sk = smooth(snowLine - 0.06, snowLine + 0.06, hn + (ny - 0.72) * 0.9 + n(x * 0.05, 7.1, z * 0.05) * 0.12);
+    c.lerp(c.clone().copy(cSnowB).lerp(cSnow, ny), sk);
+    c.lerp(cHaze, hazeK * (1 - hn * 0.45));
+    colors.set([c.r, c.g, c.b], i * 3);
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  return g;
 }
 
 function kickerGeometry() {
@@ -363,47 +557,6 @@ function flakeGeometry() {
   }
   parts.push(paint(new THREE.CylinderGeometry(0.1, 0.1, 0.05, 6).rotateX(Math.PI / 2), '#ffffff'));
   return merge(parts);
-}
-
-function mountainsGeometry(inner, outer, height, base, seed, rock, snowLine, haze, hazeK) {
-  const r = rng(seed);
-  const NA = 220, NR = 7;
-  const phases = Array.from({ length: 6 }, () => r() * Math.PI * 2);
-  const ridge = a => {
-    let h = 0;
-    h += Math.sin(a * 3 + phases[0]) * 0.35 + Math.sin(a * 7 + phases[1]) * 0.25 + Math.sin(a * 13 + phases[2]) * 0.15;
-    h += Math.sin(a * 23 + phases[3]) * 0.08 + Math.sin(a * 41 + phases[4]) * 0.04;
-    return Math.pow(clamp(0.5 + h * 0.8, 0, 1), 1.6);
-  };
-  const pos = [], cols = [];
-  const pt = (ia, ir) => {
-    const a = (ia / NA) * Math.PI * 2, t = ir / NR;
-    const rad = lerp(inner, outer, t) * (1 + (r() - 0.5) * 0.02);
-    const prof = Math.pow(Math.sin(t * Math.PI), 0.7);           // от подножия к гребню и обратно
-    const h = base + height * (0.12 + ridge(a + t * 0.18) * 0.88) * prof * (0.9 + r() * 0.2);
-    return [Math.cos(a) * rad, h, Math.sin(a) * rad];
-  };
-  const grid = [];
-  for (let ia = 0; ia <= NA; ia++) { grid.push([]); for (let ir = 0; ir <= NR; ir++) grid[ia].push(pt(ia % NA, ir)); }
-  const cRock = col(rock), cSnow = col('#f2f6ff'), cHaze = col(haze), cFoot = col(rock).lerp(col('#1e2c3a'), 0.35), c = new THREE.Color();
-  const push = (p, hn) => {
-    pos.push(...p);
-    const k = clamp((p[1] - base) / height, 0, 1);
-    const snowK = clamp((k - snowLine) / 0.1 + hn * 0.6, 0, 1);
-    c.copy(cFoot).lerp(cRock, clamp(k * 2, 0, 1)).lerp(cSnow, snowK).lerp(cHaze, hazeK * (1 - k * 0.5));
-    cols.push(c.r, c.g, c.b);
-  };
-  for (let ia = 0; ia < NA; ia++) for (let ir = 0; ir < NR; ir++) {
-    const a = grid[ia][ir], b = grid[ia + 1][ir], cc = grid[ia + 1][ir + 1], d = grid[ia][ir + 1];
-    const n1 = r() * 0.3, n2 = r() * 0.3;
-    push(a, n1); push(cc, n1); push(b, n1);
-    push(a, n2); push(d, n2); push(cc, n2);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
-  g.computeVertexNormals();
-  return g;
 }
 
 /* ---------------- шлем (райдер и бонус) ---------------- */
@@ -448,9 +601,14 @@ class Rider {
     this.inner.position.y = -0.95;
     this.root.add(this.pivot); this.pivot.add(this.inner);
 
-    const jacket = new THREE.MeshStandardMaterial({ color: R.jacket, roughness: 0.62 });
-    const jacketDark = new THREE.MeshStandardMaterial({ color: R.jacketDark, roughness: 0.65 });
-    const pants = new THREE.MeshStandardMaterial({ color: R.pants, roughness: 0.8 });
+    // мембранная ткань: плетение в карте нормалей, мягкий отлив по краям (sheen)
+    const cloth = (color, rough) => new THREE.MeshPhysicalMaterial({
+      color, roughness: rough, sheen: 0.6, sheenRoughness: 0.5, sheenColor: col(color).lerp(col('#ffffff'), 0.5),
+      normalMap: fabricNormal(), normalScale: new THREE.Vector2(0.35, 0.35),
+    });
+    const jacket = cloth(R.jacket, 0.62);
+    const jacketDark = cloth(R.jacketDark, 0.66);
+    const pants = cloth(R.pants, 0.8);
     const accent = new THREE.MeshStandardMaterial({ color: R.accent, roughness: 0.4, emissive: R.accent, emissiveIntensity: 0.15 });
     this.shellMat = new THREE.MeshPhysicalMaterial({ color: '#1b1c21', roughness: 0.45, clearcoat: 0.7, clearcoatRoughness: 0.3 });
     this.shellAccent = new THREE.MeshStandardMaterial({ color: R.accent, roughness: 0.4 });
@@ -750,76 +908,62 @@ export function create(root, canvas2d) {
 
   const coarse = matchMedia('(pointer: coarse)').matches;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
+  renderer.toneMappingExposure = 0.62;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
-  const HORIZON = col('#d9e5f3');
-  scene.fog = new THREE.Fog(HORIZON, 70, 235);
-  scene.background = HORIZON;
-  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 3000);
+  const FOG = col('#bccde2');
+  scene.fog = new THREE.FogExp2(FOG, 0.0036);
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 6000);
 
-  // небо: градиент, солнце и ореол
-  const skyMat = new THREE.ShaderMaterial({
-    uniforms: { top: { value: col('#4f86d0') }, horizon: { value: HORIZON }, bottom: { value: col('#c9d7ea') }, sunDir: { value: SUN } },
-    vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }`,
-    fragmentShader: `
-      uniform vec3 top, horizon, bottom, sunDir; varying vec3 vDir;
-      void main(){
-        float h = vDir.y;
-        vec3 c = mix(horizon, top, pow(clamp(h, 0., 1.), 0.5));
-        c = mix(c, bottom, smoothstep(0., -0.3, h));
-        float s = max(dot(normalize(vDir), sunDir), 0.);
-        c += vec3(1., .95, .85) * (pow(s, 900.) * 6. + pow(s, 60.) * .35 + pow(s, 6.) * .12);
-        gl_FragColor = vec4(c, 1.);
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
-      }`,
-    side: THREE.BackSide, depthWrite: false, fog: false,
-  });
-  const sky = new THREE.Mesh(new THREE.SphereGeometry(2500, 32, 16), skyMat);
-  sky.renderOrder = -10;
+  // небо: физическая модель рассеяния (Preetham)
+  const makeSky = size => {
+    const s = new Sky();
+    s.scale.setScalar(size);
+    const u = s.material.uniforms;
+    u.turbidity.value = 2.2; u.rayleigh.value = 1.25; u.mieCoefficient.value = 0.0045; u.mieDirectionalG.value = 0.86;
+    u.sunPosition.value.copy(SUN);
+    return s;
+  };
+  const sky = makeSky(5000);
   scene.add(sky);
 
-  // окружение для отражений (маска, шлем, кристаллы) — из того же неба
+  // отражения и рассеянный свет — из того же неба плюс отражённый снегом свет снизу
   {
     const envScene = new THREE.Scene();
-    envScene.add(new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16), skyMat));
-    const snowDisk = new THREE.Mesh(new THREE.CircleGeometry(9, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#e8eef7' }));
-    snowDisk.position.y = -1; envScene.add(snowDisk);
+    envScene.add(makeSky(50));
+    const snowDisk = new THREE.Mesh(new THREE.CircleGeometry(48, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: col('#dfe8f4').multiplyScalar(1.6) }));
+    snowDisk.position.y = -2; envScene.add(snowDisk);
     const pmrem = new THREE.PMREMGenerator(renderer);
-    scene.environment = pmrem.fromScene(envScene, 0.02).texture;
-    scene.environmentIntensity = 0.55;
+    scene.environment = pmrem.fromScene(envScene, 0.03).texture;
+    scene.environmentIntensity = 0.9;
     pmrem.dispose();
   }
 
   // свет
-  const hemi = new THREE.HemisphereLight('#bcd4f5', '#f2f5fa', 0.9);
+  const hemi = new THREE.HemisphereLight('#b9d0f0', '#eef2f8', 0.35);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight('#fff4e2', 2.4);
+  const sun = new THREE.DirectionalLight('#ffe9cf', 4.2);
   sun.castShadow = true;
-  const SH = coarse ? 1024 : 2048;
-  sun.shadow.mapSize.set(SH, SH);
-  Object.assign(sun.shadow.camera, { left: -38, right: 38, top: 38, bottom: -38, near: 1, far: 200 });
-  sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+  Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 1, far: 220 });
+  sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.035; sun.shadow.radius = 3;
   scene.add(sun, sun.target);
 
-  // дальние горы и лесистые холмы — следуют за камерой, всегда на горизонте
-  const farMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, fog: false, side: THREE.DoubleSide });
+  // дальние горы и лесистые хребты — следуют за камерой, всегда на горизонте
+  const farMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, fog: false });
   const far = new THREE.Group();
-  far.add(new THREE.Mesh(mountainsGeometry(950, 1650, 700, -420, 7, '#6d7d97', 0.55, '#c3d2e8', 0.42), farMat));
-  far.add(new THREE.Mesh(mountainsGeometry(560, 900, 330, -330, 19, '#2f4a4c', 0.72, '#b4c6dc', 0.3), farMat));
+  far.add(new THREE.Mesh(mountainGeometry({ inner: 1600, outer: 3600, height: 700, base: -640, seed: 7, scale: 900, rock: '#5d6573', forest: '#4a5360', snowLine: 0.42, haze: '#aebfd6', hazeK: 0.5 }), farMat));
+  far.add(new THREE.Mesh(mountainGeometry({ inner: 700, outer: 1400, height: 270, base: -390, seed: 19, scale: 420, rock: '#5a6068', forest: '#1f3328', snowLine: 0.78, haze: '#a6b8cf', hazeK: 0.38 }), farMat));
   scene.add(far);
   const clouds = [];
   const cloudTex = cloudTexture();
   for (let i = 0; i < 9; i++) {
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex, fog: false, depthWrite: false, opacity: 0.75 }));
-    const a = rand(-1.4, 1.4) + Math.PI / 2, d = rand(1100, 1500);
-    sp.userData = { a, d, h: rand(40, 220), w: rand(400, 800) };
-    sp.scale.set(sp.userData.w, sp.userData.w * 0.4, 1);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex, fog: false, depthWrite: false, opacity: 0.55, color: col('#ffffff').multiplyScalar(1.4) }));
+    const a = rand(-1.4, 1.4) + Math.PI / 2, d = rand(2800, 3600);
+    sp.userData = { a, d, h: rand(250, 700), w: rand(900, 1700) };
+    sp.scale.set(sp.userData.w, sp.userData.w * 0.35, 1);
     clouds.push(sp); scene.add(sp);
   }
 
@@ -831,15 +975,115 @@ export function create(root, canvas2d) {
   const snowMap = snowTexture(), grooves = grooveNormalTexture();
   snowMap.repeat.set(1 / GROUND_TILE, 1 / GROUND_TILE);
   grooves.repeat.set(1 / GROOVE_TILE, 1 / GROOVE_TILE);
-  const groundGeo = new THREE.PlaneGeometry(900, 1100, 1, 1).rotateX(-Math.PI / 2).translate(0, 0, 300);
+  const groundGeo = new THREE.PlaneGeometry(1400, 1400, 1, 1).rotateX(-Math.PI / 2).translate(0, 0, 450);
   {
     const p = groundGeo.attributes.position, uv = groundGeo.attributes.uv;
     for (let i = 0; i < p.count; i++) uv.setXY(i, -p.getX(i), p.getZ(i));   // UV в метрах, «приклеены» к миру
   }
-  const groundMat = new THREE.MeshStandardMaterial({ map: snowMap, normalMap: grooves, normalScale: new THREE.Vector2(0.55, 0.55), roughness: 0.82, color: '#ffffff' });
+  const groundMat = new THREE.MeshStandardMaterial({ map: snowMap, normalMap: grooves, normalScale: new THREE.Vector2(0.5, 0.5), roughness: 0.72, color: '#ffffff' });
+  // искры на снегу: крошечные «грани» кристаллов отражают солнце, только на освещённом снегу и вблизи
+  groundMat.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;')
+      .replace('#include <fog_vertex>', '#include <fog_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;')
+      .replace('#include <opaque_fragment>', `{
+        vec3 Vd = normalize(cameraPosition - vWP);
+        vec3 cell = floor(vWP * 26.0);
+        float h1 = fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+        float h2 = fract(sin(dot(cell, vec3(39.3468, 11.135, 83.155))) * 24634.6345);
+        vec3 fn = normalize(vec3(h1 - 0.5, 0.55, h2 - 0.5));
+        float spec = pow(max(dot(fn, normalize(Vd + ${glslVec(SUN)})), 0.0), 700.0);
+        float lit = smoothstep(0.2, 0.9, dot(reflectedLight.directDiffuse, vec3(0.3333)));
+        float fade = smoothstep(45.0, 3.0, length(cameraPosition - vWP));
+        outgoingLight += vec3(1.0, 0.96, 0.88) * spec * lit * fade * 40.0 * step(0.62, h1);
+      }
+      #include <opaque_fragment>`);
+  };
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.receiveShadow = true;
   world.add(ground);
+
+  /* ----- постобработка и уровни качества ----- */
+  const GradeShader = {
+    defines: { BLUR_N: 8 },
+    uniforms: {
+      tDiffuse: { value: null }, uRes: { value: new THREE.Vector2(1, 1) }, uSpeed: { value: 0 }, uTime: { value: 0 },
+      uSun: { value: new THREE.Vector3() },
+    },
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `
+      uniform sampler2D tDiffuse; uniform vec2 uRes; uniform float uSpeed, uTime; uniform vec3 uSun; varying vec2 vUv;
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+      void main() {
+        float aspect = uRes.x / uRes.y;
+        vec2 d = vUv - 0.5; float r = length(d * vec2(aspect, 1.0));
+        // размытие к краям на скорости + лёгкая хроматическая аберрация
+        float blur = uSpeed * 0.05 * smoothstep(0.25, 0.95, r);
+        float ca = 0.0012 + uSpeed * 0.0018;
+        vec3 c = vec3(0.0);
+        for (int i = 0; i < BLUR_N; i++) {
+          vec2 uv = vUv - d * blur * (float(i) / float(BLUR_N));
+          c.r += texture2D(tDiffuse, uv - d * ca * r).r;
+          c.g += texture2D(tDiffuse, uv).g;
+          c.b += texture2D(tDiffuse, uv + d * ca * r).b;
+        }
+        c /= float(BLUR_N);
+        // блики объектива от солнца: «призраки» по линии солнце — центр кадра
+        if (uSun.z > 0.001) {
+          vec2 axis = vec2(0.5) - uSun.xy;
+          for (int k = 0; k < 5; k++) {
+            float f = float(k);
+            float t = 0.45 + f * 0.33;
+            vec2 gp = uSun.xy + axis * t * 2.0;
+            float size = 0.025 + 0.035 * fract(f * 0.618);
+            float dd = length((vUv - gp) * vec2(aspect, 1.0));
+            vec3 tint = mix(vec3(1.0, 0.75, 0.45), vec3(0.45, 0.75, 1.0), fract(f * 0.37 + 0.2));
+            c += tint * smoothstep(size, size * 0.55, dd) * 0.045 * uSun.z;
+          }
+          float ds = length((vUv - uSun.xy) * vec2(aspect, 1.0));
+          c += vec3(1.0, 0.9, 0.75) * (exp(-ds * 9.0) * 0.18 + smoothstep(0.2, 0.19, ds) * smoothstep(0.17, 0.19, ds) * 0.03) * uSun.z;
+        }
+        // цвет: насыщенность, мягкая S-кривая, холодные тени и тёплые света
+        float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+        c = mix(vec3(l), c, 1.12);
+        c = mix(c, c * c * (3.0 - 2.0 * c), 0.25);
+        c *= mix(vec3(0.95, 0.99, 1.06), vec3(1.04, 1.0, 0.95), smoothstep(0.15, 0.85, l));
+        c *= mix(1.0, 0.68, smoothstep(0.5, 1.15, r));
+        c += (hash(vUv * uRes + fract(uTime * 7.1) * 311.0) - 0.5) * 0.022;
+        gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+      }`,
+  };
+  const QUALITY = {
+    high:   { pr: 1.5,  samples: 4, shadow: 4096, blurN: 8 },
+    medium: { pr: 1.25, samples: 2, shadow: 2048, blurN: 4 },
+    low:    { pr: 1,    samples: 0, shadow: 1024, blurN: 0 },
+  };
+  let forcedQ = null;
+  try { const s = localStorage.getItem(QUALITY_KEY); if (QUALITY[s]) forcedQ = s; } catch { /* приватный режим */ }
+  let qName = null, composer = null, grade = null, bloom = null, settle = 0;
+  const foliageMats = [];
+
+  function setQuality(name) {
+    qName = name;
+    const q = QUALITY[name];
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pr));
+    sun.shadow.mapSize.set(q.shadow, q.shadow);
+    if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+    if (composer) { composer.dispose(); composer = null; grade = bloom = null; }
+    if (q.blurN) {
+      const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: q.samples });
+      composer = new EffectComposer(renderer, rt);
+      composer.addPass(new RenderPass(scene, camera));
+      bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.32, 0.55, 2.4);
+      composer.addPass(bloom);
+      composer.addPass(new OutputPass());
+      grade = new ShaderPass({ ...GradeShader, defines: { BLUR_N: q.blurN } });
+      composer.addPass(grade);
+    }
+    for (const m of foliageMats) { m.alphaToCoverage = q.samples > 0; m.needsUpdate = true; }
+    settle = 150;
+    resize(W, H);
+  }
 
   /* ----- общие материалы и геометрии ----- */
   const M = {
@@ -860,12 +1104,31 @@ export function create(root, canvas2d) {
     _accent: {},
     accentBoard(c) { return this._accent[c] || (this._accent[c] = new THREE.MeshStandardMaterial({ color: c, roughness: 0.5 })); },
   };
-  const treeMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9 });
-  const rockMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85 });
-  const snowMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 });
-  const pines = Array.from({ length: 8 }, (_, i) => pineGeometry(i + 1));
+  const barkMat = new THREE.MeshStandardMaterial({ map: barkTexture(), roughness: 0.95 });
+  const fillMat = new THREE.MeshStandardMaterial({ color: '#0b2013', roughness: 1 });
+  const moundMat = new THREE.MeshStandardMaterial({ color: '#f4f8fd', roughness: 0.75 });
+  const branchMats = [[1, 1], [2, 1.4], [3, 0.7]].map(([seed, snowAmt]) => {
+    const m = new THREE.MeshStandardMaterial({ map: branchTexture(seed, snowAmt), alphaTest: 0.32, side: THREE.DoubleSide, roughness: 0.85 });
+    foliageMats.push(m);
+    return m;
+  });
+  const treeGeos = Array.from({ length: 8 }, (_, i) => treeGeometry(i + 1));
+  const rockMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88 });
   const rocks = Array.from({ length: 6 }, (_, i) => rockGeometry(i + 1));
+  const driftGeo = new THREE.SphereGeometry(1, 16, 5, 0, Math.PI * 2, 0, Math.PI / 2);
+  const kickerSnow = snowMap.clone(); kickerSnow.repeat.set(0.25, 0.25); kickerSnow.offset.set(0, 0);
+  const kickerGroove = grooves.clone(); kickerGroove.repeat.set(1 / GROOVE_TILE, 1 / GROOVE_TILE); kickerGroove.offset.set(0, 0);
+  const snowMat = new THREE.MeshStandardMaterial({ vertexColors: true, map: kickerSnow, normalMap: kickerGroove, normalScale: new THREE.Vector2(0.4, 0.4), roughness: 0.72 });
   const kickerGeo = kickerGeometry();
+  // контактные тени — мягкие тёмные пятна на снегу под объектами
+  const aoTex = aoTexture();
+  const decalGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  const aoMat = new THREE.MeshBasicMaterial({ map: aoTex, color: '#0f1c30', transparent: true, opacity: 0.5, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
+  const decal = (size, opacity = 1) => {
+    const d = new THREE.Mesh(decalGeo, opacity === 1 ? aoMat : Object.assign(aoMat.clone(), { opacity: aoMat.opacity * opacity }));
+    d.scale.set(size, 1, size); d.position.y = 0.012; d.renderOrder = 1;
+    return d;
+  };
   const flakeGeo = flakeGeometry();
   const flakeMat = new THREE.MeshStandardMaterial({ color: '#8cc4ff', emissive: '#2a78e6', emissiveIntensity: 0.9, metalness: 0.3, roughness: 0.2 });
   const glowBlue = new THREE.SpriteMaterial({ map: softDot('70,150,255'), depthWrite: false, opacity: 0.45 });
@@ -879,13 +1142,13 @@ export function create(root, canvas2d) {
     transparent: true, opacity: 0.45, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,
   });
   const stumpGeo = new THREE.CylinderGeometry(0.42, 0.5, 0.7, 12).translate(0, 0.35, 0);
-  const barkMat = new THREE.MeshStandardMaterial({ color: '#5a3820', roughness: 0.95, flatShading: true });
+  const stumpBark = new THREE.MeshStandardMaterial({ color: '#5a3820', roughness: 0.95, flatShading: true });
   const ringMat = new THREE.MeshStandardMaterial({ map: stumpTopTexture(), roughness: 0.9 });
   const whiteMat = new THREE.MeshStandardMaterial({ color: '#f6f9fd', roughness: 0.8 });
   const orangeMat = new THREE.MeshStandardMaterial({ color: '#ff6a13', roughness: 0.5, emissive: '#ff6a13', emissiveIntensity: 0.15 });
   const orangeDouble = orangeMat.clone(); orangeDouble.side = THREE.DoubleSide;
   // общие геометрии не удаляются вместе с объектами трассы
-  for (const g of [...pines, ...rocks, kickerGeo, flakeGeo, poleGeo, stumpGeo]) g.userData.shared = true;
+  for (const g of [...treeGeos, ...rocks, kickerGeo, flakeGeo, poleGeo, stumpGeo, decalGeo, driftGeo]) g.userData.shared = true;
   const disposeTree = obj => obj.traverse(m => { if (m.isMesh && !m.geometry.userData.shared) m.geometry.dispose(); });
 
   const riders = {};
@@ -895,34 +1158,41 @@ export function create(root, canvas2d) {
   /* ----- фабрики объектов трассы ----- */
   const make = {
     tree(o) {
-      const m = new THREE.Mesh(pines[(Math.random() * pines.length) | 0], treeMat);
+      const g = new THREE.Group();
+      const i = (Math.random() * treeGeos.length) | 0;
+      const m = new THREE.Mesh(treeGeos[i], [barkMat, fillMat, branchMats[i % branchMats.length], moundMat]);
       const k = (o.h * 0.1) / 8;
       m.scale.set(k * rand(0.9, 1.1), k, k * rand(0.9, 1.1));
       m.rotation.set(-SLOPE, rand(0, Math.PI * 2), 0);
       m.castShadow = true; m.receiveShadow = true;
-      m.userData.sway = Math.random() * 6;
-      return m;
+      g.add(m, decal(5.5 * k));
+      g.userData.mesh = m; g.userData.sway = Math.random() * 6;
+      return g;
     },
     rock(o) {
+      const g = new THREE.Group();
       const m = new THREE.Mesh(rocks[(Math.random() * rocks.length) | 0], rockMat);
       const k = o.w * S * 0.55;
       m.scale.set(k, k * rand(0.8, 1.1), k * rand(0.8, 1.1));
       m.rotation.y = rand(0, Math.PI * 2);
       m.castShadow = true; m.receiveShadow = true;
-      return m;
+      const drift = new THREE.Mesh(driftGeo, moundMat);
+      drift.scale.set(k * 1.1, k * 0.16, k * 0.75); drift.position.set(k * 0.3, -0.05, -k * 0.25); drift.receiveShadow = true;
+      g.add(m, drift, decal(k * 3.4));
+      return g;
     },
     stump() {
       const g = new THREE.Group();
-      const s = new THREE.Mesh(stumpGeo, [barkMat, ringMat, barkMat]);
+      const s = new THREE.Mesh(stumpGeo, [stumpBark, ringMat, stumpBark]);
       s.castShadow = true; g.add(s);
       const cap = new THREE.Mesh(new THREE.SphereGeometry(0.36, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), whiteMat);
       cap.scale.y = 0.35; cap.position.set(-0.05, 0.7, 0.03); g.add(cap);
       for (const a of [0.4, 2.3, 4.1]) {
-        const root2 = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.12, 0.6, 6).rotateZ(Math.PI / 2 - 0.3), barkMat);
+        const root2 = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.12, 0.6, 6).rotateZ(Math.PI / 2 - 0.3), stumpBark);
         root2.position.set(Math.cos(a) * 0.45, 0.06, Math.sin(a) * 0.45); root2.rotation.y = -a; root2.castShadow = true; g.add(root2);
       }
       const mound = new THREE.Mesh(new THREE.SphereGeometry(0.85, 12, 5, 0, Math.PI * 2, 0, Math.PI / 2), whiteMat);
-      mound.scale.y = 0.18; g.add(mound);
+      mound.scale.y = 0.18; g.add(mound, decal(2.2, 0.8));
       g.rotation.y = rand(0, Math.PI * 2);
       return g;
     },
@@ -1034,6 +1304,9 @@ export function create(root, canvas2d) {
   /* ----- debris: разлетевшееся снаряжение ----- */
   const debrisMap = new Map();
 
+  const riderAO = decal(1.5, 1.1);
+  world.add(riderAO);
+
   let W = 1, H = 1, lastPY = null, lastCX = 0, prevAngle = 0, turnS = 0, rollS = 0, t3 = 0;
   const camPos = V(0, 3, -8), camLook = V(0, 1, 8);
   let camInit = false;
@@ -1043,6 +1316,11 @@ export function create(root, canvas2d) {
   function resize(w, h) {
     W = w; H = h;
     renderer.setSize(w, h, false);
+    if (composer) {
+      composer.setPixelRatio(renderer.getPixelRatio());
+      composer.setSize(w, h);
+      grade.uniforms.uRes.value.set(w * renderer.getPixelRatio(), h * renderer.getPixelRatio());
+    }
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     updatePointScale();
@@ -1086,7 +1364,7 @@ export function create(root, canvas2d) {
       const ud = obj.userData;
       switch (o.type) {
         case 'tree':
-          obj.rotation.z = Math.sin(t3 * 1.3 + ud.sway) * 0.012;
+          ud.mesh.rotation.z = Math.sin(t3 * 1.3 + ud.sway) * 0.012;
           break;
         case 'pole': {
           const flag = ud.flag, p = flag.geometry.attributes.position, b = flag.userData.base;
@@ -1186,6 +1464,9 @@ export function create(root, canvas2d) {
     R.setShield(P.shield);
     R.update(pose);
     R.root.visible = !(P.inv > 0 && Math.floor(P.inv * 12) % 2);
+    riderAO.position.set(px, 0.014, R.root.position.z);
+    riderAO.scale.setScalar(1.5 + ph * 0.6);
+    riderAO.material.opacity = 0.55 / (1 + ph * 0.8);
 
     /* --- следы --- */
     {
@@ -1289,7 +1570,7 @@ export function create(root, canvas2d) {
       for (const t of v.texts) {
         let sp = textSprites.get(t);
         if (!sp) {
-          sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: getTextTex(t.text, t.color), depthTest: false, transparent: true }));
+          sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: getTextTex(t.text, t.color), depthTest: false, transparent: true, fog: false }));
           sp.renderOrder = 10; textSprites.set(t, sp); world.add(sp);
         }
         seenT.add(t);
@@ -1338,10 +1619,36 @@ export function create(root, canvas2d) {
     }
     const riderWorld = world.localToWorld(tmpV.set(px, 0, 12));
     sun.target.position.copy(riderWorld);
-    sun.position.copy(riderWorld).addScaledVector(SUN, 90);
+    sun.position.copy(riderWorld).addScaledVector(SUN, 110);
 
-    renderer.render(scene, camera);
+    if (composer) {
+      const u = grade.uniforms;
+      u.uSpeed.value = v.state === 'play' && !P.crash ? speedK * 0.6 + (P.air ? 0.15 : 0) : 0;
+      u.uTime.value = t3;
+      // солнце в кадре → блики объектива
+      const sp = tmpV.copy(camera.position).addScaledVector(SUN, 1000).project(camera);
+      const facing = camera.getWorldDirection(new THREE.Vector3()).dot(SUN);
+      const vis = facing > 0 ? clamp(1.3 - Math.max(Math.abs(sp.x), Math.abs(sp.y)), 0, 1) : 0;
+      u.uSun.value.set(sp.x * 0.5 + 0.5, sp.y * 0.5 + 0.5, vis);
+      composer.render(dt);
+    } else renderer.render(scene, camera);
+    adapt(v);
   }
 
+  // автоматическое качество: если кадров мало — ступенью ниже (обратно не поднимаем, чтобы не дёргалось)
+  let wallLast = 0, wallAcc = 0, wallN = 0;
+  function adapt(v) {
+    const now = performance.now();
+    const d = now - wallLast; wallLast = now;
+    if (settle > 0) { settle--; return; }
+    if (forcedQ || v.state !== 'play' || d > 250) return;
+    wallAcc += d; wallN++;
+    if (wallN < 120) return;
+    const avg = wallAcc / wallN; wallAcc = wallN = 0;
+    if (qName === 'high' && avg > 23) setQuality('medium');
+    else if (qName === 'medium' && avg > 30) setQuality('low');
+  }
+
+  setQuality(forcedQ || (coarse ? 'medium' : 'high'));
   return { canvas, render, resize };
 }
