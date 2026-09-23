@@ -525,23 +525,6 @@ function mountainGeometry({ inner, outer, height, base, seed, scale, rock, fores
   return g;
 }
 
-function kickerGeometry() {
-  // профиль вдоль склона: плавный разгон к кромке, короткий стол, крутой спуск
-  const sh = new THREE.Shape();
-  sh.moveTo(-2.6, 0);
-  for (let i = 1; i <= 14; i++) {
-    const t = i / 14;
-    sh.lineTo(-2.6 + t * 4.0, Math.pow(t, 1.8) * 1.35);
-  }
-  sh.lineTo(1.65, 1.35);
-  sh.quadraticCurveTo(2.3, 0.9, 2.7, 0);
-  sh.lineTo(-2.6, 0);
-  const g = new THREE.ExtrudeGeometry(sh, { depth: 4.6, bevelEnabled: true, bevelSize: 0.06, bevelThickness: 0.1, bevelSegments: 2, curveSegments: 8 });
-  g.rotateY(-Math.PI / 2);
-  g.translate(2.3, 0, 0);
-  return paint(g, '#f4f8fd', (c, x, y) => c.lerp(col('#c9d8ee'), clamp(0.35 - y * 0.3, 0, 0.35)));
-}
-
 function flakeGeometry() {
   const parts = [];
   for (let i = 0; i < 6; i++) {
@@ -557,6 +540,184 @@ function flakeGeometry() {
   }
   parts.push(paint(new THREE.CylinderGeometry(0.1, 0.1, 0.05, 6).rotateX(Math.PI / 2), '#ffffff'));
   return merge(parts);
+}
+
+/* ---------------- рельеф склона: перекаты, бугры и крутые уступы ----------------
+   Высота над плоскостью склона (м) по мировым координатам в метрах: gx — поперёк, gz — вниз по склону.
+   Одна и та же формула в JS (объекты, райдер, камера) и в шейдере земли. */
+const TAN_SLOPE = Math.tan(SLOPE);
+const PITCH_LEN = 240, PITCH_DROP = 14;                  // каждые 240 м — крутой участок с перепадом 14 м
+const ROAD_FLAT = 9;                                      // плавный переход от склона к полотну трассы, м
+const pitchH = gz => { const t = gz / PITCH_LEN, f = t - Math.floor(t); return -PITCH_DROP * (Math.floor(t) + smooth(0.55, 0.8, f)); };
+const rollsH = (gx, gz) =>
+  2.6 * Math.sin(gz * 0.042 + 0.7) * (0.65 + 0.35 * Math.sin(gx * 0.021 + 1.1)) +
+  1.25 * Math.sin(gz * 0.105 + gx * 0.047 + 1.3) +
+  0.8 * Math.sin(gx * 0.071 - gz * 0.033 + 2.1) +
+  0.3 * Math.sin(gx * 0.19 + gz * 0.13 + 0.4);
+const TERRAIN = { roadZ: -1e9, roadHalf: 0 };            // ближайшая трасса: полотно горизонтально, склон к нему выполаживается
+function terrH(gx, gz) {
+  const dz = gz - TERRAIN.roadZ;
+  // у трассы бугры сходят на нет: большой трамплин виден издалека
+  let h = pitchH(gz) + rollsH(gx, gz) * smooth(30, 110, Math.abs(dz));
+  const m = 1 - smooth(TERRAIN.roadHalf, TERRAIN.roadHalf + ROAD_FLAT, Math.abs(dz));
+  if (m > 0) h = lerp(h, pitchH(TERRAIN.roadZ) + dz * TAN_SLOPE, m);
+  return h;
+}
+const TERRAIN_GLSL = `
+  uniform vec2 uOff; uniform vec2 uShift; uniform float uRef; uniform vec2 uRoad;
+  float pitchH(float gz) { float t = gz / ${PITCH_LEN.toFixed(1)}; return -${PITCH_DROP.toFixed(1)} * (floor(t) + smoothstep(0.55, 0.8, fract(t))); }
+  float rollsH(float gx, float gz) {
+    return 2.6 * sin(gz * 0.042 + 0.7) * (0.65 + 0.35 * sin(gx * 0.021 + 1.1))
+         + 1.25 * sin(gz * 0.105 + gx * 0.047 + 1.3)
+         + 0.8 * sin(gx * 0.071 - gz * 0.033 + 2.1)
+         + 0.3 * sin(gx * 0.19 + gz * 0.13 + 0.4);
+  }
+  float terrH(float gx, float gz) {
+    float dz = gz - uRoad.x;
+    float h = pitchH(gz) + rollsH(gx, gz) * smoothstep(30.0, 110.0, abs(dz));
+    float m = 1.0 - smoothstep(uRoad.y, uRoad.y + ${ROAD_FLAT.toFixed(1)}, abs(dz));
+    return mix(h, pitchH(uRoad.x) + dz * ${TAN_SLOPE.toFixed(5)}, m);
+  }`;
+
+/* ---------------- естественный трамплин: снежная насыпь, кромка в начале координат ---------------- */
+function snowKickerGeometry(len, height, width, seed) {
+  const n = perlin(seed);
+  const zr = -len * 0.85, zk = len * 0.2;
+  const g = new THREE.PlaneGeometry(width * 1.7, len * 1.4, 40, 56).rotateX(-Math.PI / 2).translate(0, 0, (zr * 1.15 + zk * 1.6) / 2);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), z = p.getZ(i);
+    let prof = 0;
+    if (z > zr && z <= 0) prof = Math.pow((z - zr) / -zr, 1.9);
+    else if (z > 0 && z < zk) prof = 0.5 + 0.5 * Math.cos((z / zk) * Math.PI);
+    const ax = Math.abs(x) / (width / 2) + n(x * 0.25, z * 0.25, 0.5) * 0.18;
+    const lat = 1 - smooth(0.55, 1.2, ax);
+    const bump = n(x * 0.9, z * 0.9, 2.5) * 0.07 * (0.3 + prof);
+    p.setY(i, height * prof * lat + bump - 0.06);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/* ---------------- машины: силуэт выдавлен по ширине, стёкла, колёса, фары ---------------- */
+function roadTexture() {
+  const t = canvasTex(1024, 256, (g, w, h) => {
+    const r = rng(8);
+    g.fillStyle = '#3a3d43'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 9000; i++) { g.fillStyle = r() < 0.5 ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.14)'; g.fillRect(r() * w, r() * h, 1.2, 1.2); }
+    // накатанные колеи — темнее и глаже
+    g.fillStyle = 'rgba(0,0,0,.2)';
+    for (const y of [0.2, 0.33, 0.67, 0.8]) g.fillRect(0, y * h - 6, w, 12);
+    // разметка: сплошные по краям, двойная жёлтая по центру
+    g.fillStyle = '#ecece6'; g.fillRect(0, 0.08 * h, w, 5); g.fillRect(0, 0.92 * h - 5, w, 5);
+    g.fillStyle = '#e2b126'; g.fillRect(0, h / 2 - 8, w, 5); g.fillRect(0, h / 2 + 3, w, 5);
+    // трещины и заплатки
+    g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1.2;
+    for (let i = 0; i < 18; i++) { let x = r() * w, y = r() * h; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 5; k++) { x += (r() - 0.5) * 40; y += (r() - 0.5) * 20; g.lineTo(x, y); } g.stroke(); }
+    // края в снегу
+    const e = g.createLinearGradient(0, 0, 0, 0.07 * h);
+    e.addColorStop(0, 'rgba(235,240,247,.95)'); e.addColorStop(1, 'rgba(235,240,247,0)');
+    g.fillStyle = e; g.fillRect(0, 0, w, 0.07 * h);
+    g.save(); g.translate(0, h); g.scale(1, -1); g.fillRect(0, 0, w, 0.07 * h); g.restore();
+  }, { repeat: true });
+  t.wrapT = THREE.ClampToEdgeWrapping;
+  return t;
+}
+
+function signTexture(dir) {
+  return canvasTex(256, 320, (g, w) => {
+    g.fillStyle = '#ffffff'; g.strokeStyle = '#d9352b'; g.lineWidth = 22; g.lineJoin = 'round';
+    g.beginPath(); g.moveTo(w / 2, 22); g.lineTo(w - 20, 210); g.lineTo(20, 210); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#16161a'; g.font = '900 120px Manrope, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('!', w / 2, 140);
+    g.fillStyle = '#2466d9'; g.fillRect(20, 232, w - 40, 80);
+    g.fillStyle = '#fff';
+    g.save(); g.translate(w / 2, 272); g.scale(dir, 1);
+    g.beginPath(); g.moveTo(70, 0); g.lineTo(20, -28); g.lineTo(20, -10); g.lineTo(-70, -10); g.lineTo(-70, 10); g.lineTo(20, 10); g.lineTo(20, 28); g.closePath(); g.fill();
+    g.restore();
+  });
+}
+
+const VEH_DIM = { car: [4.5, 1.85, 1.45], suv: [4.9, 2.0, 1.85], truck: [16.4, 2.55, 3.9], bus: [12, 2.55, 3.3] };
+function makeVehicle(kind, color, M) {
+  const g = new THREE.Group();
+  const [L, Wd, Ht] = VEH_DIM[kind];
+  const paint = new THREE.MeshPhysicalMaterial({ color, metalness: 0.55, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.06 });
+  const add = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+  // силуэт сбоку (z — длина, y — высота) выдавливается по ширине
+  const body = (pts, w, mat, bevel = 0.06) => {
+    const sh = new THREE.Shape(pts.map(([z, y]) => new THREE.Vector2(z, y)));
+    const geo = new THREE.ExtrudeGeometry(sh, { depth: w - bevel * 2, bevelEnabled: true, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 2, curveSegments: 4 });
+    geo.rotateY(-Math.PI / 2).translate((w - bevel * 2) / 2, 0, 0);
+    return add(geo, mat);
+  };
+  const wheels = [];
+  const wheel = (z, x, r = 0.34) => {
+    const w = new THREE.Group();
+    const tire = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.26, 20).rotateZ(Math.PI / 2), M.tire);
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.6, r * 0.6, 0.27, 12).rotateZ(Math.PI / 2), M.metal);
+    tire.castShadow = true; w.add(tire, rim);
+    w.position.set(x, r, z); g.add(w); wheels.push(w);
+  };
+  const lights = (zF, zR, y, w) => {
+    for (const s of [-1, 1]) {
+      add(new THREE.BoxGeometry(0.32, 0.12, 0.05), M.headlight, s * (w / 2 - 0.25), y, zF);
+      add(new THREE.BoxGeometry(0.3, 0.14, 0.05), M.taillight, s * (w / 2 - 0.22), y, zR);
+    }
+  };
+  if (kind === 'car' || kind === 'suv') {
+    const k = kind === 'suv' ? 1.25 : 1;
+    const z0 = -L / 2, z1 = L / 2;
+    body([[z0, 0.3], [z0, 0.95 * k], [z0 + 0.5, 1.0 * k], [z0 + (kind === 'suv' ? 0.4 : 1.1), Ht], [z1 - 1.9, Ht], [z1 - 1.05, 1.02 * k], [z1 - 0.1, 0.88 * k], [z1, 0.35]], Wd, paint);
+    // стёкла по бокам, лобовое и заднее
+    const glassPts = [[z0 + (kind === 'suv' ? 0.55 : 1.2), 1.02 * k], [z0 + (kind === 'suv' ? 0.55 : 1.25), Ht - 0.07], [z1 - 1.95, Ht - 0.07], [z1 - 1.2, 1.04 * k]];
+    for (const s of [-1, 1]) {
+      const sh = new THREE.Shape(glassPts.map(([z, y]) => new THREE.Vector2(z, y)));
+      const geo = new THREE.ShapeGeometry(sh).rotateY(-Math.PI / 2);
+      const m = add(geo, M.glass, s * (Wd / 2 + 0.005), 0, 0);
+      m.castShadow = false;
+    }
+    // лобовое и заднее стекло — наклонные плоскости между капотом и крышей
+    const slope = (za, ya, zb, yb) => {
+      const dy = yb - ya, dz = zb - za;
+      const m = add(new THREE.PlaneGeometry(Wd - 0.22, Math.hypot(dy, dz)), M.glass, 0, (ya + yb) / 2, (za + zb) / 2);
+      m.rotation.x = Math.atan2(dz, dy); m.castShadow = false;
+    };
+    slope(z1 - 1.05, 1.02 * k, z1 - 1.9, Ht - 0.02);
+    if (kind === 'car') slope(z0 + 0.5, 1.0 * k, z0 + 1.1, Ht - 0.02);
+    add(new THREE.BoxGeometry(Wd + 0.04, 0.22, 0.25), M.bumper, 0, 0.42, z1 - 0.08);
+    add(new THREE.BoxGeometry(Wd + 0.04, 0.22, 0.25), M.bumper, 0, 0.42, z0 + 0.08);
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.2, 0.1, 0.12), paint, s * (Wd / 2 + 0.1), 1.05 * k, z1 - 1.25);
+    lights(z1 + 0.01, z0 - 0.01, 0.78 * k, Wd);
+    const r = kind === 'suv' ? 0.4 : 0.33;
+    for (const s of [-1, 1]) { wheel(z1 - 0.95, s * (Wd / 2 - 0.12), r); wheel(z0 + 0.95, s * (Wd / 2 - 0.12), r); }
+  } else if (kind === 'truck') {
+    const cabL = 2.5, z1 = L / 2;
+    body([[z1 - cabL, 0.55], [z1 - cabL, Ht - 0.1], [z1 - 0.35, Ht - 0.1], [z1, Ht - 1.2], [z1, 0.55]], Wd, paint, 0.1);
+    add(new THREE.PlaneGeometry(Wd - 0.3, 0.9), M.glass, 0, Ht - 0.75, z1 + 0.02);
+    for (const s of [-1, 1]) add(new THREE.PlaneGeometry(1.3, 0.85).rotateY(Math.PI / 2), M.glass, s * (Wd / 2 + 0.11), Ht - 0.85, z1 - 1.0).castShadow = false;
+    add(new THREE.BoxGeometry(Wd - 0.5, 0.8, 0.06), M.metal, 0, 1.2, z1 + 0.03);   // решётка
+    add(new THREE.BoxGeometry(Wd, 0.3, 0.3), M.bumper, 0, 0.6, z1 + 0.05);
+    // прицеп с логотипом
+    const tr = add(new THREE.BoxGeometry(Wd, Ht - 0.9, L - cabL - 0.4), [M.trailerSide, M.trailerSide, M.trailerTop, M.bumper, M.trailerEnd, M.trailerEnd], 0, (Ht - 0.9) / 2 + 0.9, -cabL / 2 - 0.2);
+    tr.castShadow = true;
+    add(new THREE.BoxGeometry(Wd - 0.3, 0.25, L - 0.6), M.bumper, 0, 0.75, 0);
+    lights(z1 + 0.06, -L / 2 + 0.2, 0.8, Wd);
+    for (const s of [-1, 1]) {
+      for (const z of [z1 - 0.8, z1 - cabL - 0.6, z1 - cabL - 1.8, -L / 2 + 2.6, -L / 2 + 1.5, -L / 2 + 0.4]) wheel(z, s * (Wd / 2 - 0.2), 0.5);
+    }
+  } else {
+    const z0 = -L / 2, z1 = L / 2;
+    body([[z0, 0.35], [z0, Ht - 0.1], [z0 + 0.2, Ht], [z1 - 0.3, Ht], [z1, Ht - 0.4], [z1, 0.35]], Wd, paint, 0.12);
+    for (const s of [-1, 1]) add(new THREE.PlaneGeometry(L - 1.4, 1.1).rotateY((s * Math.PI) / 2), M.glass, s * (Wd / 2 + 0.01), Ht - 1.1, -0.2);
+    add(new THREE.PlaneGeometry(Wd - 0.3, 1.5), M.glass, 0, Ht - 1.05, z1 + 0.01);
+    add(new THREE.BoxGeometry(Wd + 0.02, 0.35, L - 0.2), M.accentStripe, 0, 1.0, 0);
+    lights(z1 + 0.02, z0 - 0.02, 0.8, Wd);
+    for (const s of [-1, 1]) { wheel(z1 - 2.4, s * (Wd / 2 - 0.2), 0.5); wheel(z0 + 2.8, s * (Wd / 2 - 0.2), 0.5); }
+  }
+  g.userData.wheels = wheels;
+  g.userData.paint = paint;
+  return g;
 }
 
 /* ---------------- шлем (райдер и бонус) ---------------- */
@@ -975,15 +1136,30 @@ export function create(root, canvas2d) {
   const snowMap = snowTexture(), grooves = grooveNormalTexture();
   snowMap.repeat.set(1 / GROUND_TILE, 1 / GROUND_TILE);
   grooves.repeat.set(1 / GROOVE_TILE, 1 / GROOVE_TILE);
-  const groundGeo = new THREE.PlaneGeometry(1400, 1400, 1, 1).rotateX(-Math.PI / 2).translate(0, 0, 450);
+  const CELL = 4;                                            // шаг сетки рельефа, м
+  const groundGeo = new THREE.PlaneGeometry(1000, 640, 250, 160).rotateX(-Math.PI / 2).translate(0, 0, 230);
   {
     const p = groundGeo.attributes.position, uv = groundGeo.attributes.uv;
-    for (let i = 0; i < p.count; i++) uv.setXY(i, -p.getX(i), p.getZ(i));   // UV в метрах, «приклеены» к миру
+    for (let i = 0; i < p.count; i++) uv.setXY(i, -p.getX(i), p.getZ(i));   // UV в метрах
   }
+  const terrU = { uOff: { value: new THREE.Vector2() }, uShift: { value: new THREE.Vector2() }, uRef: { value: 0 }, uRoad: { value: new THREE.Vector2(-1e9, 0) } };
   const groundMat = new THREE.MeshStandardMaterial({ map: snowMap, normalMap: grooves, normalScale: new THREE.Vector2(0.5, 0.5), roughness: 0.72, color: '#ffffff' });
   // искры на снегу: крошечные «грани» кристаллов отражают солнце, только на освещённом снегу и вблизи
   groundMat.onBeforeCompile = sh => {
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;')
+    Object.assign(sh.uniforms, terrU);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;' + TERRAIN_GLSL)
+      .replace('#include <beginnormal_vertex>', `
+        vec3 lp = position + vec3(uShift.x, 0.0, uShift.y);
+        float gx = -lp.x + uOff.x, gz = lp.z + uOff.y;
+        float tH = terrH(gx, gz);
+        const float E = 0.9;
+        float dX = terrH(gx + E, gz) - terrH(gx - E, gz);
+        float dZ = terrH(gx, gz + E) - terrH(gx, gz - E);
+        vec3 objectNormal = normalize(vec3(dX / (2.0 * E), 1.0, -dZ / (2.0 * E)));
+        #ifdef USE_TANGENT
+          vec3 objectTangent = vec3(tangent.xyz);
+        #endif`)
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed.y += tH - uRef;')
       .replace('#include <fog_vertex>', '#include <fog_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;')
       .replace('#include <opaque_fragment>', `{
@@ -1001,6 +1177,7 @@ export function create(root, canvas2d) {
   };
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.receiveShadow = true;
+  ground.frustumCulled = false;
   world.add(ground);
 
   /* ----- постобработка и уровни качества ----- */
@@ -1087,6 +1264,20 @@ export function create(root, canvas2d) {
 
   /* ----- общие материалы и геометрии ----- */
   const M = {
+    tire: new THREE.MeshStandardMaterial({ color: '#141416', roughness: 0.9 }),
+    headlight: new THREE.MeshStandardMaterial({ color: '#fffaf0', emissive: '#fff4d6', emissiveIntensity: 6 }),
+    taillight: new THREE.MeshStandardMaterial({ color: '#b91c1c', emissive: '#ff2020', emissiveIntensity: 4 }),
+    glass: new THREE.MeshPhysicalMaterial({ color: '#0d141c', metalness: 0.2, roughness: 0.04, clearcoat: 1, envMapIntensity: 1.6, side: THREE.DoubleSide }),
+    bumper: new THREE.MeshStandardMaterial({ color: '#23252b', roughness: 0.6 }),
+    trailerSide: new THREE.MeshStandardMaterial({ map: canvasTex(1024, 256, (g, w, h) => {
+      g.fillStyle = '#f3f4f6'; g.fillRect(0, 0, w, h);
+      g.fillStyle = '#d9352b'; g.fillRect(0, h - 34, w, 14);
+      g.fillStyle = '#16161a'; g.font = '900 112px Manrope, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('COULAIR CLUB', w / 2, h / 2 - 8);
+    }), roughness: 0.5 }),
+    trailerTop: new THREE.MeshStandardMaterial({ color: '#e5e7eb', roughness: 0.6 }),
+    trailerEnd: new THREE.MeshStandardMaterial({ color: '#d1d5db', roughness: 0.5, metalness: 0.3 }),
+    accentStripe: new THREE.MeshStandardMaterial({ color: '#1d4ed8', roughness: 0.4 }),
     dark: new THREE.MeshStandardMaterial({ color: '#16161a', roughness: 0.55 }),
     darkDouble: new THREE.MeshStandardMaterial({ color: '#1c1d22', roughness: 0.55, side: THREE.DoubleSide }),
     strap: new THREE.MeshStandardMaterial({ color: '#111114', roughness: 0.8, side: THREE.DoubleSide }),
@@ -1118,8 +1309,26 @@ export function create(root, canvas2d) {
   const driftGeo = new THREE.SphereGeometry(1, 16, 5, 0, Math.PI * 2, 0, Math.PI / 2);
   const kickerSnow = snowMap.clone(); kickerSnow.repeat.set(0.25, 0.25); kickerSnow.offset.set(0, 0);
   const kickerGroove = grooves.clone(); kickerGroove.repeat.set(1 / GROOVE_TILE, 1 / GROOVE_TILE); kickerGroove.offset.set(0, 0);
-  const snowMat = new THREE.MeshStandardMaterial({ vertexColors: true, map: kickerSnow, normalMap: kickerGroove, normalScale: new THREE.Vector2(0.4, 0.4), roughness: 0.72 });
-  const kickerGeo = kickerGeometry();
+  kickerSnow.repeat.set(2, 2); kickerGroove.repeat.set(3, 3);
+  const groundLikeMat = new THREE.MeshStandardMaterial({ map: kickerSnow, normalMap: kickerGroove, normalScale: new THREE.Vector2(0.35, 0.35), roughness: 0.74 });
+  const kickerGeo = snowKickerGeometry(6, 1.45, 5.2, 11);
+  const bigKickerGeo = snowKickerGeometry(15, 3.6, 11, 23);
+  const roadTex = roadTexture();
+  roadTex.repeat.set(1000 / 40, 1);
+  const roadMat = new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.62, metalness: 0.05 });
+  const bankGeo = (() => {
+    const g = new THREE.CylinderGeometry(1, 1, 1000, 14, 250, false).rotateZ(Math.PI / 2);
+    const p = g.attributes.position, n = perlin(41);
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), k = 1 + n(x * 0.15, 0.3, 0.7) * 0.35 + n(x * 0.6, 1.3, 0.2) * 0.12;
+      p.setY(i, p.getY(i) * k); p.setZ(i, p.getZ(i) * k);
+    }
+    g.computeVertexNormals();
+    return g;
+  })();
+  const bankMat = new THREE.MeshStandardMaterial({ map: snowMap.clone(), color: '#e3e8f0', roughness: 0.85 });
+  bankMat.map.repeat.set(1 / 12, 1 / 12);
+  const signMats = { '-1': new THREE.MeshStandardMaterial({ map: signTexture(-1), roughness: 0.5, transparent: true, alphaTest: 0.5 }), '1': new THREE.MeshStandardMaterial({ map: signTexture(1), roughness: 0.5, transparent: true, alphaTest: 0.5 }) };
   // контактные тени — мягкие тёмные пятна на снегу под объектами
   const aoTex = aoTexture();
   const decalGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
@@ -1145,10 +1354,8 @@ export function create(root, canvas2d) {
   const stumpBark = new THREE.MeshStandardMaterial({ color: '#5a3820', roughness: 0.95, flatShading: true });
   const ringMat = new THREE.MeshStandardMaterial({ map: stumpTopTexture(), roughness: 0.9 });
   const whiteMat = new THREE.MeshStandardMaterial({ color: '#f6f9fd', roughness: 0.8 });
-  const orangeMat = new THREE.MeshStandardMaterial({ color: '#ff6a13', roughness: 0.5, emissive: '#ff6a13', emissiveIntensity: 0.15 });
-  const orangeDouble = orangeMat.clone(); orangeDouble.side = THREE.DoubleSide;
   // общие геометрии не удаляются вместе с объектами трассы
-  for (const g of [...treeGeos, ...rocks, kickerGeo, flakeGeo, poleGeo, stumpGeo, decalGeo, driftGeo]) g.userData.shared = true;
+  for (const g of [...treeGeos, ...rocks, kickerGeo, bigKickerGeo, flakeGeo, poleGeo, stumpGeo, decalGeo, driftGeo, bankGeo]) g.userData.shared = true;
   const disposeTree = obj => obj.traverse(m => { if (m.isMesh && !m.geometry.userData.shared) m.geometry.dispose(); });
 
   const riders = {};
@@ -1197,18 +1404,48 @@ export function create(root, canvas2d) {
       return g;
     },
     ramp() {
+      const k = new THREE.Mesh(kickerGeo, groundLikeMat);
+      k.castShadow = true; k.receiveShadow = true;
+      return k;
+    },
+    bigramp() {
+      const k = new THREE.Mesh(bigKickerGeo, groundLikeMat);
+      k.castShadow = true; k.receiveShadow = true;
+      return k;
+    },
+    sign(o) {
       const g = new THREE.Group();
-      const k = new THREE.Mesh(kickerGeo, snowMat);
-      k.castShadow = true; k.receiveShadow = true; g.add(k);
-      const lip = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.05, 0.14), orangeMat);
-      lip.position.set(0, 1.42, 1.6); g.add(lip);
+      g.rotation.x = -SLOPE;
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.4, 8).translate(0, 1.2, 0), M.metal);
+      post.castShadow = true; g.add(post);
+      const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.375), signMats[String(-o.dir)]);
+      plate.position.set(0, 2.25, -0.06); plate.rotation.y = Math.PI; plate.castShadow = true; g.add(plate);
+      return g;
+    },
+    road(o) {
+      // полотно горизонтально (поворот против уклона), машины — дочерние объекты
+      const g = new THREE.Group();
+      g.rotation.x = -SLOPE;
+      const half = (o.w * S) / 2;
+      const asphalt = new THREE.Mesh(new THREE.PlaneGeometry(1000, half * 2 + 1.2).rotateX(-Math.PI / 2), roadMat);
+      asphalt.receiveShadow = true; asphalt.position.y = 0.04; g.add(asphalt);
       for (const s of [-1, 1]) {
-        const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.6, 6).translate(0, 0.8, 0), M.dark);
-        stick.position.set(s * 2.55, 1.2, 1.6); stick.rotation.x = -SLOPE; stick.castShadow = true; g.add(stick);
-        const flag = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([V(0, 0, 0), V(s * 0.55, -0.15, 0), V(0, -0.35, 0)]), orangeDouble);
-        flag.geometry.computeVertexNormals();
-        flag.position.set(0, 1.6, 0); stick.add(flag);
+        const bank = new THREE.Mesh(bankGeo, bankMat);
+        bank.scale.set(1, 0.75, 1.1); bank.position.set(0, -0.05, s * (half + 1.3));
+        bank.castShadow = true; bank.receiveShadow = true; g.add(bank);
       }
+      // фонари вдоль нижней обочины
+      const lamps = [];
+      for (let i = 0; i < 14; i++) {
+        const l = new THREE.Group();
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.11, 8, 8).translate(0, 4, 0), M.metal);
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 2.2).translate(0, 7.9, -1.1), M.metal);
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.12, 0.7), M.headlight);
+        head.position.set(0, 7.82, -2.1);
+        pole.castShadow = arm.castShadow = true;
+        l.add(pole, arm, head); l.position.z = half + 3.2; g.add(l); lamps.push(l);
+      }
+      g.userData = { half, cars: new Map(), lamps };
       return g;
     },
     pole(o) {
@@ -1307,7 +1544,7 @@ export function create(root, canvas2d) {
   const riderAO = decal(1.5, 1.1);
   world.add(riderAO);
 
-  let W = 1, H = 1, lastPY = null, lastCX = 0, prevAngle = 0, turnS = 0, rollS = 0, t3 = 0;
+  let W = 1, H = 1, lastPY = null, lastCX = 0, prevAngle = 0, turnS = 0, rollS = 0, t3 = 0, tiltX = 0, tiltZ = 0;
   const camPos = V(0, 3, -8), camLook = V(0, 1, 8);
   let camInit = false;
   const trickMeta = new WeakMap();
@@ -1343,9 +1580,21 @@ export function create(root, canvas2d) {
     const dY = lastPY === null ? 0 : (P.y - lastPY) * S, dX = (cam.x - lastCX) * S;
     lastPY = P.y; lastCX = cam.x;
 
-    // земля «приклеена» к миру
-    snowMap.offset.set(((ox * S) / GROUND_TILE) % 1, ((oy * S) / GROUND_TILE) % 1);
-    grooves.offset.set(((ox * S) / GROOVE_TILE) % 1, ((oy * S) / GROOVE_TILE) % 1);
+    // рельеф: ближайшая трасса выполаживает склон, высоты считаются от точки под райдером
+    let road = null;
+    for (const o of v.objects) if (o.type === 'road' && (!road || Math.abs(o.y - P.y) < Math.abs(road.y - P.y))) road = o;
+    TERRAIN.roadZ = road ? road.y * S : -1e9;
+    TERRAIN.roadHalf = road ? (road.w * S) / 2 + 1.2 : 0;
+    const hRef = terrH(P.x * S, P.y * S);
+    const gy = (x, y) => terrH(x * S, y * S) - hRef;
+    const oxM = ox * S, oyM = oy * S;
+    // сетка земли стоит на месте в мире (шаг CELL), иначе рельеф «плыл» бы
+    const shX = oxM - CELL * Math.round(oxM / CELL), shZ = -(oyM - CELL * Math.floor(oyM / CELL));
+    ground.position.set(shX, 0, shZ);
+    terrU.uOff.value.set(oxM, oyM); terrU.uShift.value.set(shX, shZ); terrU.uRef.value = hRef;
+    terrU.uRoad.value.set(TERRAIN.roadZ, TERRAIN.roadHalf);
+    snowMap.offset.set(((oxM - shX) / GROUND_TILE) % 1, ((oyM + shZ) / GROUND_TILE) % 1);
+    grooves.offset.set(((oxM - shX) / GROOVE_TILE) % 1, ((oyM + shZ) / GROOVE_TILE) % 1);
 
     /* --- объекты трассы --- */
     const seen = new Set();
@@ -1360,9 +1609,28 @@ export function create(root, canvas2d) {
         world.add(obj);
       }
       seen.add(o);
-      obj.position.set(mx(o.x), 0, mz(o.y));
+      obj.position.set(mx(o.x), gy(o.x, o.y), mz(o.y));
       const ud = obj.userData;
       switch (o.type) {
+        case 'road': {
+          obj.position.set(0, pitchH(o.y * S) - hRef, mz(o.y));
+          roadTex.offset.x = (-(oxM / 40) % 1 + 1) % 1;
+          // машины
+          const seenC = new Set();
+          for (const c of o.cars) {
+            let m = ud.cars.get(c);
+            if (!m) { m = makeVehicle(c.kind, c.color, M); ud.cars.set(c, m); obj.add(m); }
+            seenC.add(c);
+            m.position.set(-(c.x - ox) * S, 0.04, c.lane * S);
+            m.rotation.y = c.dir > 0 ? -Math.PI / 2 : Math.PI / 2;
+            for (const w of m.userData.wheels) w.rotation.x = c.wheel * S * 2.5;
+          }
+          for (const [c, m] of ud.cars) if (!seenC.has(c)) { obj.remove(m); disposeTree(m); m.userData.paint.dispose(); ud.cars.delete(c); }
+          // фонари стоят на месте в мире, шаг 50 м
+          const base = Math.round(oxM / 50) * 50;
+          ud.lamps.forEach((l, i) => { l.position.x = -(base + (i - 7) * 50 - oxM); });
+          break;
+        }
         case 'tree':
           ud.mesh.rotation.z = Math.sin(t3 * 1.3 + ud.sway) * 0.012;
           break;
@@ -1423,13 +1691,19 @@ export function create(root, canvas2d) {
     rollS = damp(rollS, rollT, 8, dt);
 
     R.root.position.set(px, ph, 0);
+    const gxP = P.x * S, gzP = P.y * S;
+    const dhdz = (terrH(gxP, gzP + 0.8) - terrH(gxP, gzP - 0.8)) / 1.6;
+    const dhdx = -(terrH(gxP + 0.8, gzP) - terrH(gxP - 0.8, gzP)) / 1.6;
+    tiltX = damp(tiltX, grounded ? Math.atan(-dhdz) : tiltX * 0.9, 10, dt);
+    tiltZ = damp(tiltZ, grounded ? Math.atan(dhdx) : 0, 10, dt);
     R.root.rotation.set(0, 0, 0);
     R.pivot.rotation.set(0, 0, 0, 'XYZ');
     R.pivot.position.set(0, 0.95, 0);
     const yaw = rider === 'ski' ? -heading : -heading * 0.9;
     R.root.rotation.order = 'YXZ';
     R.root.rotation.y = yaw;
-    R.root.rotation.z = rollS;
+    R.root.rotation.x = tiltX;
+    R.root.rotation.z = rollS + tiltZ;
 
     const pose = {
       c: P.crouch, grab: !!(P.air && P.trick && P.z > 40), plant: P.plant, noGear: false,
@@ -1447,7 +1721,7 @@ export function create(root, canvas2d) {
       m.t += dt;
       const k = clamp(m.t / m.T, 0, 1);
       const e = clamp((k - 0.08) / 0.8, 0, 1);            // отрыв и приземление — ровно, оборот — посередине
-      R.pivot.rotation.x = -(e * e * (3 - 2 * e)) * Math.PI * 2;
+      R.pivot.rotation.x = -(e * e * (3 - 2 * e)) * Math.PI * 2 * (/двойн/i.test(P.trick.name) ? 2 : 1);
       pose.c = 0.55 + 0.45 * Math.sin(Math.PI * clamp(k * 1.15, 0, 1));
     }
     if (P.crash) {
@@ -1475,8 +1749,8 @@ export function create(root, canvas2d) {
       const w = rider === 'ski' ? 0.07 : 0.3;
       let n = 0;
       const tr = v.tracks, len = tr.length;
-      const put = (x, z, a) => {
-        pos[n * 3] = x; pos[n * 3 + 1] = 0.015; pos[n * 3 + 2] = z;
+      const put = (x, z, a, y) => {
+        pos[n * 3] = x; pos[n * 3 + 1] = y; pos[n * 3 + 2] = z;
         cl[n * 4] = 0.5; cl[n * 4 + 1] = 0.6; cl[n * 4 + 2] = 0.78; cl[n * 4 + 3] = a;
         n++;
       };
@@ -1488,8 +1762,9 @@ export function create(root, canvas2d) {
           let dx = bx - ax, dz = bz - az; const l = Math.hypot(dx, dz) || 1;
           const nx = (-dz / l) * w / 2, nz = (dx / l) * w / 2;
           const fa = (i / len) * 0.85, fb = ((i + 1) / len) * 0.85;
-          put(ax + nx, az + nz, fa); put(bx + nx, bz + nz, fb); put(bx - nx, bz - nz, fb);
-          put(ax + nx, az + nz, fa); put(bx - nx, bz - nz, fb); put(ax - nx, az - nz, fa);
+          const ya = gy(a.x, a.y) + 0.03, yb = gy(b.x, b.y) + 0.03;
+          put(ax + nx, az + nz, fa, ya); put(bx + nx, bz + nz, fb, yb); put(bx - nx, bz - nz, fb, yb);
+          put(ax + nx, az + nz, fa, ya); put(bx - nx, bz - nz, fb, yb); put(ax - nx, az - nz, fa, ya);
         }
       }
       trackGeo.setDrawRange(0, n);
@@ -1521,13 +1796,13 @@ export function create(root, canvas2d) {
         if (!m) { m = { h: 0.15, vh: rand(1, 3.2) * (Math.hypot(p.vx, p.vy) / 110 + 0.35) }; pMeta.set(p, m); }
         m.vh -= 9.8 * dt; m.h = Math.max(0.05, m.h + m.vh * dt);
         const k = p.t / p.life;
-        emit(mx(p.x), m.h, mz(p.y), p.r * S * (2.5 + k * 4), (1 - k) * 0.85);
+        emit(mx(p.x), m.h + gy(p.x, p.y), mz(p.y), p.r * S * (2.5 + k * 4), (1 - k) * 0.85);
       }
       for (const p of spray) {
         p.vh -= 9.8 * dt; p.h = Math.max(0.03, p.h + p.vh * dt);
         p.x += p.vx * dt; p.y += p.vy * dt;
         const k = p.t / p.life;
-        emit(mx(p.x), p.h, mz(p.y), p.r * (1 + k * 2.5), (1 - k) * 0.7);
+        emit(mx(p.x), p.h + gy(p.x, p.y), mz(p.y), p.r * (1 + k * 2.5), (1 - k) * 0.7);
       }
       dustGeo.setDrawRange(0, n);
       pos.needsUpdate = sz.needsUpdate = al.needsUpdate = true;
@@ -1558,7 +1833,7 @@ export function create(root, canvas2d) {
           debrisMap.set(d, m); world.add(m);
         }
         seenD.add(d);
-        m.position.set(mx(d.x), d.z * HZ + 0.05, mz(d.y));
+        m.position.set(mx(d.x), d.z * HZ + 0.05 + gy(d.x, d.y), mz(d.y));
         m.rotation.set(d.kind === 'pole' ? Math.PI / 2 : d.z > 0 ? d.rot * 0.6 : 0, d.rot, d.z > 0 ? d.rot * 0.3 : 0);
       }
       for (const [d, m] of debrisMap) if (!seenD.has(d)) { world.remove(m); disposeTree(m); debrisMap.delete(d); }
@@ -1574,7 +1849,7 @@ export function create(root, canvas2d) {
           sp.renderOrder = 10; textSprites.set(t, sp); world.add(sp);
         }
         seenT.add(t);
-        sp.position.set(mx(t.x), 2.4 + t.t * 1.6, mz(t.y));
+        sp.position.set(mx(t.x), 2.4 + t.t * 1.6 + gy(t.x, t.y), mz(t.y));
         const s = 0.9 + Math.min(1, t.t * 6) * 0.25;
         sp.scale.set(3.6 * s, 0.675 * s, 1);
         sp.material.opacity = 1 - t.t / 1.1;
@@ -1596,9 +1871,15 @@ export function create(root, canvas2d) {
       look.set(px, 1.0, 0);
     } else {
       const narrow = clamp(1 / camera.aspect, 1, 2.2) - 1;          // портрет: камера выше и дальше
-      target.set(px * 0.85 + P.angle * 0.8, 3.0 + narrow * 2.2 + speedK * 0.6 + ph * 0.8, -7.4 - narrow * 4.5 - speedK * 1.8 - ph * 0.3);
-      look.set(px * 0.95 + P.angle * 1.5, 0.9 + ph * 0.85, 10);
+      // в высоком прыжке камера отстаёт и держится ниже райдера — видно, над чем он летит
+      const air = Math.min(ph, 14);
+      target.set(px * 0.85 + P.angle * 0.8, 3.0 + narrow * 2.2 + speedK * 0.6 + air * 0.5, -7.4 - narrow * 4.5 - speedK * 1.8 - air * 0.75);
+      look.set(px * 0.95 + P.angle * 1.5, 0.9 + ph * 0.75, 10 - air * 0.2);
     }
+    const hAt = (X, Z) => terrH(-X + oxM, Z + oyM) - hRef;
+    const tCam = hAt(target.x, target.z);
+    target.y = Math.max(target.y + tCam * 0.85, tCam + 1.6);
+    look.y += hAt(look.x, look.z) * 0.8;
     const k = camInit ? 1 - Math.exp(-dt * (v.state === 'start' ? 2.5 : 4.5)) : 1;
     camInit = true;
     camPos.lerp(target, k); camLook.lerp(look, k);

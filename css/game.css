@@ -22,7 +22,18 @@
   content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
   background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(20,35,60,.28) 100%);
 }
-.game__hud, .game__view, .game__close, .game__panel, .game__touch, .game__toast { z-index: 2; }
+.game__hud, .game__view, .game__close, .game__panel, .game__touch, .game__toast, .game__warn { z-index: 2; }
+/* подсказка: впереди автотрасса */
+.game__warn {
+  position: absolute; left: 50%; top: 84px; transform: translateX(-50%);
+  max-width: calc(100% - 32px); margin: 0; padding: 10px 18px; border-radius: 12px;
+  background: #d9352b; color: #fff; font-size: 16px; font-weight: 800; text-align: center; white-space: nowrap;
+  box-shadow: 0 6px 20px rgba(217,53,43,.35); pointer-events: none;
+  animation: game-warn 0.8s ease-in-out infinite alternate;
+}
+.game__warn[hidden] { display: none; }
+@keyframes game-warn { from { transform: translateX(-50%) scale(1); } to { transform: translateX(-50%) scale(1.05); } }
+@media (max-width: 600px) { .game__warn { top: 128px; font-size: 14px; white-space: normal; } }
 
 .game__hud {
   position: absolute; top: 14px; left: 14px; right: 164px;
