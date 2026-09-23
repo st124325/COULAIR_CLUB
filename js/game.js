@@ -35,10 +35,10 @@
   // крутизна 0…1 (пик в середине стенки)
   const steepness = y => { const f = pitchF(y); if (f < PITCH.from || f > PITCH.to) return 0; const u = (f - PITCH.from) / (PITCH.to - PITCH.from); return 4 * u * (1 - u); };
   // трюки в воздухе
-  const TRICK = { spinRate: 9.5, flipRate: 7.5, spinTol: 0.65, flipTol: 0.75 };
+  const TRICK = { spinRate: 9.5, flipRate: 7.5, spinTol: 1.1, flipTol: 1.2 };   // допуск при приземлении ~63° и ~69°
   const GRABS = { ski: ['Мьют-грэб', 'Сэйфти-грэб', 'Тейл-грэб'], board: ['Инди-грэб', 'Мелон', 'Мэтод'] };
   // йети
-  const YETI = { wake: 110, emerge: 0.45, chase: 9, catchR: 15, giveUp: 700, sprint: 1.6 };
+  const YETI = { wake: 110, emerge: 0.45, chase: 9, follow: 48, minGap: 26 };
 
   let root, canvas, ctx, W = 0, H = 0, dpr = 1;
   let state = 'start', rider = 'ski', raf = 0, last = 0;
@@ -668,34 +668,23 @@
     const playing = state === 'play' && !P.crash;
     if (o.phase === 'emerge') { if (o.t > YETI.emerge) { o.phase = 'chase'; o.t = 0; } return; }
     if (o.phase === 'chase') {
-      const dx = P.x - o.x, dy = P.y - o.y, d = Math.hypot(dx, dy) || 1;
-      // на прямой чуть медленнее райдера, но делает рывки; в поворотах догоняет
+      // держится вплотную позади и чуть сбоку, рычит и тянет лапы — но никогда не догоняет
+      o.side = o.side ?? (o.x < P.x ? -1 : 1);
       const lunge = Math.max(0, Math.sin(o.t * 2.6)) ** 6;
-      // первые секунды — спринт из засады, потом на прямой чуть медленнее райдера
-      const sprint = o.t < YETI.sprint ? 1.4 : 1;
-      const sp = Math.max(280, (P.speed / Math.max(P.boost, 1)) * (0.97 + lunge * 0.24) * Math.max(P.boost * 0.9, 1) * sprint);
-      o.vx = (dx / d) * sp; o.vy = (dy / d) * sp;
-      o.x += o.vx * dt; o.y += o.vy * dt;
-      o.run += dt * sp / 38;
+      const gap = YETI.follow - lunge * 16;                  // в рывке подбирается совсем близко
+      const tx = P.x + o.side * 14 - P.angle * 20, ty = P.y - gap;
+      // бежит вместе с игроком (без отставания) и подтягивается к точке за спиной
+      if (o.px !== undefined && o.t > 0.6) { o.x += P.x - o.px; o.y += P.y - o.py; }
+      o.px = P.x; o.py = P.y;
+      const k = Math.min(1, (o.t < 1 ? 2.5 : 5) * dt);
+      const nx = o.x + (tx - o.x) * k, ny = Math.min(o.y + (ty - o.y) * k, P.y - YETI.minGap);
+      o.vx = (nx - o.x) / Math.max(dt, 1e-3); o.vy = (ny - o.y) / Math.max(dt, 1e-3);
+      o.x = nx; o.y = ny;
+      o.run += dt * Math.max(8, Math.hypot(o.vx, o.vy) / 38);
       o.lunge = lunge;
       if (Math.random() < 0.35) particles.push({ x: o.x + rand(-8, 8), y: o.y + 2, vx: rand(-50, 50), vy: rand(-60, 0), life: rand(0.25, 0.5), t: 0, r: rand(1.5, 3) });
-      if (playing && d < YETI.catchR && P.z < 40 && P.inv <= 0) {
-        if (P.shield) {
-          P.shield = false; P.inv = 1.6; shake = 10;
-          addText('Шлем спас от йети!', P.x, P.y - 50, '#2d7a3e');
-          o.phase = 'giveup'; o.t = 0; o.vx *= -0.4; o.vy *= -0.4;
-        } else {
-          o.phase = 'caught'; o.t = 0;
-          P.crash = 0.001; shake = 16;
-          puff(P.x, P.y, 34, 1.6);
-          const gear = rider === 'ski' ? ['ski', 'ski', 'pole', 'pole'] : [];
-          for (const kind of gear) debris.push({ kind, x: P.x + rand(-6, 6), y: P.y, z: 6, vx: rand(-160, 160), vy: rand(-60, 160), vz: rand(160, 300), rot: rand(0, 6), vr: rand(-14, 14) });
-          gameOver('Тебя поймал йети!');
-          startCine('yeti', { yeti: o, title: 'Попался!' });
-        }
-        return;
-      }
-      if (playing && (o.t > YETI.chase || (d > YETI.giveUp && o.t > 2.5))) {
+      if (!playing) { o.phase = 'giveup'; o.t = 0; return; }
+      if (o.t > YETI.chase) {
         o.phase = 'giveup'; o.t = 0;
         bonus += 250; addText('Ушёл от йети +250', P.x, P.y - 60, '#6d28d9');
       }
@@ -706,21 +695,6 @@
       o.vx *= k; o.vy *= k;
       o.x += o.vx * dt; o.y += o.vy * dt;
       o.run += dt * Math.hypot(o.vx, o.vy) / 38;
-      return;
-    }
-    if (o.phase === 'carry') {
-      o.vy += (-230 - o.vy) * Math.min(1, 2.5 * dt);          // убегает вверх по склону
-      o.vx += (0 - o.vx) * Math.min(1, 2 * dt);
-      o.x += o.vx * dt; o.y += o.vy * dt;
-      o.run += dt * Math.abs(o.vy) / 32;
-      o.prints = o.prints || [];
-      if (!o.lastPrint || o.lastPrint - o.y > 22) { o.lastPrint = o.y; o.prints.push({ x: o.x + (o.prints.length % 2 ? 7 : -7), y: o.y }); }
-      return;
-    }
-    if (o.phase === 'caught') {
-      o.run += dt * 3;
-      o.roar = (o.roar || 0) - dt;
-      if (o.roar <= 0) { o.roar = 1.2; addText(pick(['РРРАР!', 'УУУРГХ!']), o.x, o.y - 110, '#6d28d9'); }
     }
   }
 
@@ -940,7 +914,7 @@
       }
     }
     if (!text && state === 'play' && !P.crash) {
-      if (objects.some(o => o.type === 'yeti' && o.phase === 'chase')) text = '👣 За тобой гонится йети! Не сворачивай зря';
+      if (objects.some(o => o.type === 'yeti' && o.phase === 'chase')) text = '👣 За тобой гонится йети! Не оглядывайся';
       else if (steepness(P.y) > 0.05) text = '◆ Крутяк! Скорость растёт';
       else {
         const f = pitchF(P.y);

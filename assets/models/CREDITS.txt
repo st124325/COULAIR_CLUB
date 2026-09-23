@@ -1,0 +1,4 @@
+Модели райдеров собраны скриптом tools/blender/build_rider.py (Blender 4.5)
+из CC0-ассетов Quaternius — https://quaternius.com:
+  Universal Base Characters (Standard), Universal Animation Library (Standard)
+Лицензия исходников: CC0 1.0 (public domain).

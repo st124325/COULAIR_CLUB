@@ -12,6 +12,35 @@ import { OutputPass } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/
 import { ShaderPass } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/postprocessing/ShaderPass.js/+esm';
 import { Sky } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/objects/Sky.js/+esm';
 import { mergeGeometries, mergeVertices } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/utils/BufferGeometryUtils.js/+esm';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/loaders/GLTFLoader.js/+esm';
+
+/* ---------------- модель человека (Blender: tools/blender/build_rider.py, CC0 Quaternius) ----------------
+   Скелет повторяет позу процедурного райдера (IK: присед, наклон, палки, грэб),
+   падение и «барахтанье» — настоящие анимации из библиотеки. Пока модель грузится — процедурный райдер. */
+const MODEL_V = new URL(import.meta.url).searchParams.get('v') || '';
+const modelCache = {};
+function loadRiderModel(kind) {
+  if (!modelCache[kind]) {
+    const url = new URL(`../assets/models/rider-${kind}.glb${MODEL_V ? '?v=' + MODEL_V : ''}`, import.meta.url).href;
+    modelCache[kind] = new GLTFLoader().loadAsync(url).catch(err => { console.warn('Coulair Run: модель райдера не загрузилась', err); return null; });
+  }
+  return modelCache[kind];
+}
+const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion();
+const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
+// повернуть кость так, чтобы её дочерняя точка (childW) смотрела на targetW; всё в мировых координатах
+function aimBone(bone, childW, targetW) {
+  bone.updateWorldMatrix(true, false);
+  const bw = _v1.setFromMatrixPosition(bone.matrixWorld);
+  const cur = _v2.subVectors(childW, bw).normalize(), want = _v3.subVectors(targetW, bw).normalize();
+  if (cur.lengthSq() < 1e-8 || want.lengthSq() < 1e-8) return;
+  const wq = bone.getWorldQuaternion(_q1);
+  const delta = _q2.setFromUnitVectors(cur, want);
+  const pq = bone.parent.getWorldQuaternion(_q3).invert();
+  bone.quaternion.copy(pq.multiply(delta.multiply(wq)));
+  bone.updateWorldMatrix(false, true);
+}
+const wpos = (o, out = new THREE.Vector3()) => { o.updateWorldMatrix(true, false); return out.setFromMatrixPosition(o.matrixWorld); };
 
 const S = 0.08;              // игровая единица → метры
 const HZ = 0.035;            // высота прыжка (игровая z) → метры
@@ -862,9 +891,108 @@ class Rider {
       this.gear.add(this.board);
     }
     this.tmp = { a: V(), b: V(), c: V(), d: V() };
+    this.proc = [...this.thigh, ...this.shin, ...this.knee, ...this.boot, this.pelvis, this.torso, ...this.upper, ...this.fore, ...this.elbow, ...this.glove, this.head];
+    loadRiderModel(kind).then(g => g && this.attachModel(g));
+  }
+
+  attachModel(gltf) {
+    const scene = gltf.scene;                               // один райдер на вид — клон не нужен
+    this.skin = new THREE.Group();
+    this.skin.add(scene);
+    this.inner.add(this.skin);
+    this.bones = {};
+    scene.traverse(o => {
+      if (o.isBone) this.bones[o.name] = o;
+      if (o.isMesh) {
+        o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false;
+        if (o.material && o.material.name === 'M_Helmet') this.helmetMat = o.material;
+      }
+    });
+    const b = this.bones;
+    const dist = (a, c) => wpos(b[a]).distanceTo(wpos(b[c]));
+    this.len = {
+      thigh: dist('thigh_l', 'calf_l'), calf: dist('calf_l', 'foot_l'),
+      upper: dist('upperarm_l', 'lowerarm_l'), fore: dist('lowerarm_l', 'hand_l'),
+    };
+    this.mixer = new THREE.AnimationMixer(scene);
+    this.clips = {};
+    for (const c of gltf.animations) this.clips[c.name] = this.mixer.clipAction(c);
+    for (const n of ['Death01', 'Hit_Head']) if (this.clips[n]) { this.clips[n].setLoop(THREE.LoopOnce, 1); this.clips[n].clampWhenFinished = true; }
+    this.playing = null;
+    this.play('Crouch_Idle_Loop');
+    for (const o of this.proc) o.visible = false;
+    this.helmet.visible = false;
+    this.setShield(this._shield);
+  }
+
+  play(name, fade = 0.25) {
+    const a = this.clips[name];
+    if (!a || this.playing === name) return;
+    const prev = this.playing && this.clips[this.playing];
+    a.reset().setEffectiveWeight(1).play();
+    if (prev) prev.crossFadeTo(a, fade, false);
+    this.playing = name;
+  }
+
+  // скелет повторяет процедурную позу
+  drive(pose) {
+    const b = this.bones, T = this.tmp;
+    const toW = p => this.inner.localToWorld(p.clone());
+    // корпус смотрит туда же, куда процедурный (для доски — боком)
+    this.skin.rotation.set(0, Math.atan2(this._fwd.x, this._fwd.z), 0);
+    this.skin.position.set(0, 0, 0);
+    this.skin.updateWorldMatrix(true, true);
+    // таз — в точку процедурного таза
+    const pelvisT = toW(this._pelvis);
+    const cur = wpos(b.pelvis);
+    const off = this.skin.parent.worldToLocal(pelvisT.clone()).sub(this.skin.parent.worldToLocal(cur.clone()));
+    this.skin.position.add(off);
+    this.skin.updateWorldMatrix(true, true);
+    // спина: наклон к процедурной груди
+    aimBone(b.spine_01, wpos(b.neck_01), toW(this._chest));
+    // голова: чуть вниз по склону
+    aimBone(b.neck_01, wpos(b.Head), wpos(b.neck_01).add(toW(this._headDir).sub(toW(V()))));
+    // ноги: двухзвенный IK с длинами модели
+    for (const [side, i] of [['l', 0], ['r', 1]]) {
+      const thigh = b['thigh_' + side], calf = b['calf_' + side], foot = b['foot_' + side], ball = b['ball_' + side];
+      const hipW = wpos(thigh), ankT = toW(this._ank[i]);
+      const hint = toW(this._kneeHint[i]).sub(toW(V()));
+      const knee = ik(hipW, ankT, this.len.thigh, this.len.calf, hint, T.a);
+      aimBone(thigh, wpos(calf), knee);
+      aimBone(calf, wpos(foot), ankT);
+      // стопа вдоль ботинка/лыжи, подошвой вниз
+      aimBone(foot, wpos(ball), wpos(foot).add(toW(this._footDir[i]).sub(toW(V())).multiplyScalar(0.12)).add(V(0, -0.06, 0)));
+    }
+    // руки
+    for (const [side, i] of [['l', 0], ['r', 1]]) {
+      const ua = b['upperarm_' + side], la = b['lowerarm_' + side], hand = b['hand_' + side];
+      const shW = wpos(ua), handT = toW(this._hand[i]);
+      const hint = toW(this._elbowHint[i]).sub(toW(V()));
+      const el = ik(shW, handT, this.len.upper, this.len.fore, hint, T.b);
+      aimBone(ua, wpos(la), el);
+      aimBone(la, wpos(hand), handT);
+      // палка — в настоящую руку модели
+      if (this.poles) {
+        const real = this.inner.worldToLocal(wpos(hand));
+        this.poles[i].position.add(real.sub(this._hand[i]));
+      }
+    }
+  }
+
+  // особые состояния — чистая анимация из библиотеки
+  animate(name, dt) {
+    this.skin.rotation.set(0, 0, 0);
+    this.skin.position.set(0, 0, 0);
+    this.play(name, 0.15);
+    this.mixer.update(dt);
   }
 
   setShield(on) {
+    this._shield = on;
+    if (this.helmetMat) {                                   // шлем-бонус: зелёное свечение
+      this.helmetMat.emissive.set(on ? '#5dff3a' : '#000000');
+      this.helmetMat.emissiveIntensity = on ? 0.45 : 0;
+    }
     this.shellMat.color.set(on ? '#f4f5f7' : '#1b1c21');
     this.shellAccent.color.set(on ? '#5dff3a' : this.kind === 'ski' ? '#ffd23f' : '#5dff3a');
   }
@@ -881,6 +1009,11 @@ class Rider {
       const fwd = V(Math.sin(pose.look), 0, Math.cos(pose.look));
       this.legs(pelvis, ank, V(0, 0, 1), fwd);
       this.body(pelvis, chest, fwd, pose.look * 0.6);
+      this._ank = [ank(1).setY(0.1), ank(-1).setY(0.1)];
+      this._kneeHint = [V(0.15, 0, 1), V(-0.15, 0, 1)];
+      this._footDir = [V(0, 0, 1), V(0, 0, 1)];
+      this._elbowHint = [V(1, -0.4, -0.6), V(-1, -0.4, -0.6)];
+      this._hand = [];
       for (const [i, s] of [[0, 1], [1, -1]]) {
         const plant = pose.plant && pose.plant.side === -s ? Math.sin((pose.plant.t / 0.3) * Math.PI) : 0;
         const sh = this.shoulder(chest, fwd, s);
@@ -888,6 +1021,7 @@ class Rider {
         if (pose.grab) hand = V(s * 0.1, 0.3, 0.28);
         else hand = V(s * 0.3, pelvis.y + 0.1 + plant * 0.08, pelvis.z + 0.42 + plant * 0.12);
         this.arm(i, sh, hand, V(s, -0.4, -0.6));
+        this._hand[i] = hand.clone();
         const tipT = pose.grab ? V(s * 0.25, hand.y - 0.2, hand.z - 1.1)
           : V(s * (0.42 - plant * 0.08), 0, lerp(hand.z - 0.6, hand.z + 0.3, plant));
         const pole = this.poles[i];
@@ -904,6 +1038,11 @@ class Rider {
       const fwd = V(1, 0, 0.5).normalize();
       this.legs(pelvis, ank, V(1, 0, 0), V(1, 0, 0), true);
       this.body(pelvis, chest, fwd, 0);
+      this._ank = [ank(1).setY(0.1), ank(-1).setY(0.1)];
+      this._kneeHint = [V(1, 0, 0.35), V(1, 0, -0.35)];
+      this._footDir = [V(1, 0, 0.25).normalize(), V(1, 0, -0.25).normalize()];
+      this._elbowHint = [V(-0.3, -0.5, 0.4), V(-0.3, -0.5, -0.4)];
+      this._hand = [];
       const sway = Math.sin(pose.clock * 3.2) * 0.06;
       for (const [i, s] of [[0, 1], [1, -1]]) {
         const sh = this.shoulder(chest, fwd, -s);
@@ -912,6 +1051,7 @@ class Rider {
         else if (pose.grab) hand = V(0.1, chest.y - 0.25, -0.45);
         else hand = V(0.14, chest.y - 0.3 + s * sway + pose.turn * s * 0.08, s * (0.6 - c * 0.08));
         this.arm(i, sh, hand, V(-0.3, -0.5, s * 0.4));
+        this._hand[i] = hand.clone();
       }
       this.board.position.set(0, 0.03, 0);
     }
@@ -919,6 +1059,11 @@ class Rider {
     const headFwd = this.kind === 'ski' ? V(Math.sin(pose.look * 0.4), -0.25, 1) : V(0.35, -0.2, 1);
     const hp = this.head.position.clone();
     orient(this.head, hp, hp.clone().add(V(0, 1, 0)), headFwd.normalize());
+    if (this.skin) {
+      this._headDir = V(0, 1, 0).addScaledVector(headFwd, 0.35).normalize();
+      if (pose.anim) this.animate(pose.anim, pose.dt || 0.016);
+      else { this.mixer.update(pose.dt || 0.016); this.play('Crouch_Idle_Loop'); this.drive(pose); }
+    }
   }
 
   legs(pelvis, ank, kneeHint, fwd, board) {
@@ -936,6 +1081,7 @@ class Rider {
   }
 
   body(pelvis, chest, fwd) {
+    this._pelvis = pelvis.clone();
     orient(this.pelvis, pelvis, pelvis.clone().add(V(0, 1, 0)), fwd);
     orient(this.torso, pelvis, chest, fwd);
     this._chest = chest; this._fwd = fwd;
@@ -1868,7 +2014,7 @@ export function create(root, canvas2d) {
 
     const pose = {
       c: P.crouch, grab: !!(P.air && P.trick && P.z > 40), plant: P.plant, noGear: false,
-      look: heading * 0.6, clock: v.clock, turn: turnS * 0.2,
+      look: heading * 0.6, clock: v.clock, turn: turnS * 0.2, dt,
     };
 
     if (P.air && P.trick) {
@@ -1901,9 +2047,16 @@ export function create(root, canvas2d) {
       const k = clamp(P.crash / 0.9, 0, 1);
       const e = 1 - Math.pow(1 - k, 3);
       R.pivot.rotation.order = 'XYZ';
-      R.pivot.rotation.x = e * Math.PI * 2.1;
-      R.pivot.rotation.z = e * Math.PI * 0.5;
-      R.pivot.position.y = lerp(0.95, 0.3, e) + Math.sin(k * Math.PI) * 0.8;
+      if (R.skin) {
+        // у модели: полный кувырок в воздухе, а падение на спину — анимация Death01
+        R.pivot.rotation.x = e * Math.PI * 2;
+        R.pivot.position.y = 0.95 + Math.sin(k * Math.PI) * 0.8;
+        pose.anim = 'Death01';
+      } else {
+        R.pivot.rotation.x = e * Math.PI * 2.1;
+        R.pivot.rotation.z = e * Math.PI * 0.5;
+        R.pivot.position.y = lerp(0.95, 0.3, e) + Math.sin(k * Math.PI) * 0.8;
+      }
       // отскок назад от препятствия; от ёлки — дальше, за пределы нижних лап, чтобы райдер не лежал под кроной
       R.root.position.z = -e * (v.cine && v.cine.hit && v.cine.hit.type === 'tree' ? 3.6 : 1.2);
       pose.noGear = rider === 'ski';
@@ -1919,6 +2072,7 @@ export function create(root, canvas2d) {
       R.pivot.position.y = 0.95;
       pose.noGear = rider === 'ski';
       pose.c = 0.15 + Math.abs(Math.sin(t3 * 11)) * 0.45;
+      pose.anim = 'Swim_Idle_Loop';
     }
     R.setShield(P.shield);
     R.update(pose);
