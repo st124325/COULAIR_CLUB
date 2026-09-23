@@ -36,6 +36,18 @@
   const steepness = y => { const f = pitchF(y); if (f < PITCH.from || f > PITCH.to) return 0; const u = (f - PITCH.from) / (PITCH.to - PITCH.from); return 4 * u * (1 - u); };
   // трюки в воздухе
   const TRICK = { spinRate: 9.5, flipRate: 7.5, spinTol: 1.1, flipTol: 1.2 };   // допуск при приземлении ~63° и ~69°
+  // связки с трамплина: → / ← в прыжке — персонаж сам докручивает трюк к приземлению.
+  // rot — вращение (в оборотах по 180°), flip — сальто (в полных оборотах), tilt — наклон оси (корк/родео)
+  const COMBOS = {
+    board: {
+      1: [{ name: 'Фронтсайд Корк 720', rot: 4, flip: 1, grab: 'Мелон', pts: 1200 }, { name: 'Фронт 360', rot: 2, flip: 0, grab: 'Инди-грэб', pts: 420 }],
+      '-1': [{ name: 'Бэксайд Родео 540', rot: -3, flip: 1, grab: 'Мэтод', pts: 1000 }, { name: 'Бэксайд 180', rot: -1, flip: 0, grab: 'Мэтод', pts: 260 }],
+    },
+    ski: {
+      1: [{ name: 'Корк 720', rot: 4, flip: 1, grab: 'Сэйфти-грэб', pts: 1200 }, { name: 'Флэт 360', rot: 2, flip: 0, grab: 'Мьют-грэб', pts: 420 }],
+      '-1': [{ name: 'Мисти 720', rot: -4, flip: 1, grab: 'Тейл-грэб', pts: 1250 }, { name: 'Спиннер 360', rot: -2, flip: 0, grab: 'Тейл-грэб', pts: 420 }],
+    },
+  };
   const GRABS = { ski: ['Мьют-грэб', 'Сэйфти-грэб', 'Тейл-грэб'], board: ['Инди-грэб', 'Мелон', 'Мэтод'] };
   // йети
   const YETI = { wake: 110, emerge: 0.45, chase: 9, follow: 48, minGap: 26 };
@@ -292,7 +304,7 @@
     P = { x: 0, y: 0, z: 0, vz: 0, angle: 0, speed: 240, shield: false, inv: 0, crash: 0, spin: 0, air: false, trick: null,
           crouch: 0.3, plant: null, plantCD: 0,
           rot: 0, flip: 0, grabT: 0, grabbing: false, manual: false, staleL: false, staleR: false, boost: 1, steepT: 0, carried: false,
-          stance: 1, stanceVis: 0, revertLatch: false, takeoffStance: 1 };
+          stance: 1, stanceVis: 0, revertLatch: false, takeoffStance: 1, combo: null };
     objects = []; tracks = []; particles = []; texts = []; debris = [];
     lastCrest = -1;
     cam = { x: 0 }; spawnY = 200; score = 0; bonus = 0; shake = 0; nextRoadY = ROAD.first;
@@ -425,9 +437,35 @@
   function takeoff(fromRamp) {
     P.staleL = keys.left; P.staleR = keys.right;         // стрелки, зажатые для поворота, трюк не начинают
     keys.flip = false;
-    P.rot = 0; P.flip = 0; P.grabT = 0; P.grabbing = false; P.manual = false; P.spin = 0;
+    P.rot = 0; P.flip = 0; P.grabT = 0; P.grabbing = false; P.manual = false; P.spin = 0; P.combo = null;
     P.fromRamp = fromRamp;
     P.takeoffStance = P.stance;
+  }
+
+  // оставшееся время полёта (та же гравитация 900, что в прыжке)
+  const airLeft = () => (P.vz + Math.sqrt(Math.max(0, P.vz * P.vz + 2 * 900 * P.z))) / 900;
+
+  function startCombo(dir) {
+    const T = airLeft();
+    const list = COMBOS[rider][dir];
+    const c = T > 0.95 ? list[0] : T > 0.45 ? list[1] : null;          // на коротком прыжке — связка попроще
+    if (!c) return;
+    P.combo = { ...c, dir, t: 0, T: T * 0.86 };                          // докручивает чуть раньше приземления
+    P.manual = true; P.spin = 0;
+    if (P.trick) P.trick.manual = true; else P.trick = { name: '', points: 0, spinRate: 0, manual: true };
+    addText(`${c.name}!`, P.x, P.y - 85, '#6d28d9');
+  }
+
+  function runCombo(dt) {
+    const c = P.combo;
+    c.t = Math.min(c.T, c.t + dt);
+    const u = c.t / c.T, e = u * u * (3 - 2 * u);                         // разгон и торможение вращения
+    P.rot = c.rot * Math.PI * e;
+    // сальто в середине полёта (корк/родео — ось завалена), к приземлению снова ровно
+    const fu = Math.min(1, Math.max(0, (u - 0.15) / 0.7));
+    P.flip = c.flip * Math.PI * 2 * fu * fu * (3 - 2 * fu);
+    P.grabbing = u > 0.2 && u < 0.8;
+    if (P.grabbing) P.grabT += dt;
   }
 
   const wrapPi = a => { a %= Math.PI * 2; if (a > Math.PI) a -= Math.PI * 2; if (a < -Math.PI) a += Math.PI * 2; return a; };
@@ -462,6 +500,12 @@
       const list = GRABS[rider];
       parts.push(list[(Math.abs(Math.round(P.rot)) + flips) % list.length]);
       pts += 60 + Math.round(P.grabT * 120);
+    }
+    if (P.combo) {                                              // связка засчитывается целиком, со своим грэбом
+      parts.length = 0;
+      parts.push(P.combo.name + ' + ' + P.combo.grab);
+      pts = P.combo.pts;
+      P.combo = null;
     }
     if (!parts.length) return;
     if (P.fromRamp) pts += P.fromRamp === 'big' ? 300 : 100;
@@ -741,9 +785,13 @@
       const prevAngle = P.angle;
       if (!P.air) P.angle += (target - P.angle) * Math.min(1, turnRate * dt);
       else {
+        // с трамплина: первое нажатие → или ← запускает связку, дальше персонаж крутит её сам
+        const tapR = keys.right && !P.staleR, tapL = keys.left && !P.staleL;
+        if (P.fromRamp && !P.combo && !P.manual && (tapR || tapL)) startCombo(tapR ? 1 : -1);
+        if (P.combo) runCombo(dt);
         // трюки: ← → — вращение, зажатый прыжок — сальто, ↓ — грэб
-        const spinIn = (keys.right && !P.staleR ? 1 : 0) - (keys.left && !P.staleL ? 1 : 0);
-        if (spinIn || keys.flip || keys.grab) {
+        const spinIn = P.combo ? 0 : (keys.right && !P.staleR ? 1 : 0) - (keys.left && !P.staleL ? 1 : 0);
+        if (!P.combo && (spinIn || keys.flip || keys.grab)) {
           if (!P.manual) {
             P.manual = true; P.spin = 0;
             if (P.trick) P.trick.manual = true;
@@ -752,8 +800,10 @@
           P.rot += spinIn * TRICK.spinRate * dt;
           if (keys.flip) P.flip += TRICK.flipRate * dt;
         }
-        P.grabbing = keys.grab;
-        if (keys.grab) P.grabT += dt;
+        if (!P.combo) {
+          P.grabbing = keys.grab;
+          if (keys.grab) P.grabT += dt;
+        }
       }
       // сноуборд: ↓ на земле — реверт, разворот доски на 180° (едешь другим боком)
       if (rider === 'board' && !P.air) {
