@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 site = Path(sys.argv[1] if len(sys.argv) > 1 else '_site')
-assets = ['css/style.css', 'css/game.css', 'js/main.js', 'js/game.js', 'catalog/catalog.js']
+assets = ['css/style.css', 'css/game.css', 'js/main.js', 'js/game.js', 'js/game3d.js', 'catalog/catalog.js']
 h = hashlib.sha1()
 for a in assets:
     f = site / a

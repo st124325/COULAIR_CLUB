@@ -5,6 +5,7 @@
 (() => {
   const V = (() => { try { return new URL(document.currentScript.src).searchParams.get('v') || ''; } catch { return ''; } })();
   const BEST_KEY = 'coulair-run-best';
+  const MODE_KEY = 'coulair-run-mode';
   const RIDERS = {
     ski: {
       name: 'Лыжник', jacket: '#d9352b', jacketLight: '#ff6a5c', jacketDark: '#8e1a14', accent: '#ffd23f',
@@ -24,9 +25,14 @@
   let root, canvas, ctx, W = 0, H = 0, dpr = 1;
   let state = 'start', rider = 'ski', raf = 0, last = 0;
   let P, objects, tracks, particles, texts, debris = [], cam, spawnY, score, bonus, best, shake, keys, overTimer;
+  // графика: '2d' — canvas, '3d' — Three.js (js/game3d.js грузится только при первом включении)
+  let mode = '2d', R3D = null, loading3D = null, toastTimer = 0;
 
   const load = () => { try { return Number(localStorage.getItem(BEST_KEY)) || 0; } catch { return 0; } };
   const save = v => { try { localStorage.setItem(BEST_KEY, String(v)); } catch { /* приватный режим */ } };
+  const loadMode = () => { try { return localStorage.getItem(MODE_KEY) === '3d' ? '3d' : '2d'; } catch { return '2d'; } };
+  const saveMode = v => { try { localStorage.setItem(MODE_KEY, v); } catch { /* приватный режим */ } };
+  const is3D = () => mode === '3d' && R3D;
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[(Math.random() * arr.length) | 0];
   const plural = (n, one, few, many) => {
@@ -55,6 +61,10 @@
         <div class="game__shield" data-hud="shield" hidden title="Шлем защитит от одного падения">⛑</div>
         <div class="game__best"><span class="game__label">Рекорд</span><strong data-hud="best">0</strong></div>
       </div>
+      <div class="game__view game__view--hud" role="group" aria-label="Графика">
+        <button data-mode="2d" aria-pressed="true">2D</button><button data-mode="3d" aria-pressed="false">3D</button>
+      </div>
+      <p class="game__toast" data-game-toast hidden></p>
       <button class="game__close" data-game-close aria-label="Закрыть игру">
         <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
@@ -67,8 +77,12 @@
           <button class="game__rider" data-rider="ski" role="radio"><span>⛷️</span>Лыжник</button>
           <button class="game__rider" data-rider="board" role="radio"><span>🏂</span>Сноубордист</button>
         </div>
+        <div class="game__view game__view--panel" role="group" aria-label="Графика">
+          <span class="game__label">Графика</span>
+          <button data-mode="2d" aria-pressed="true">2D</button><button data-mode="3d" aria-pressed="false">3D</button>
+        </div>
         <button class="game__start" data-game-start>Поехали</button>
-        <p class="game__keys">← → — поворот · пробел — прыжок · Esc — выход</p>
+        <p class="game__keys">← → — поворот · пробел — прыжок · V — 2D/3D · Esc — выход</p>
       </div>
 
       <div class="game__panel" data-screen="over" hidden>
@@ -98,6 +112,9 @@
       if (r) setRider(r.dataset.rider);
       if (e.target.closest('[data-game-start]')) start();
       if (e.target.closest('[data-game-menu]')) showScreen('start');
+      const m = e.target.closest('[data-mode]');
+      if (m) { setMode(m.dataset.mode); m.blur(); }            // без фокуса: пробел — прыжок, а не повторное нажатие
+      if (r) r.blur();
     });
 
     // сенсорные кнопки: держишь — едешь в сторону
@@ -117,6 +134,58 @@
     new ResizeObserver(() => { if (!root.hidden) resize(); }).observe(root);
     document.addEventListener('visibilitychange', () => { if (document.hidden) last = 0; });
     setRider(rider);
+    setMode(loadMode(), true);
+  }
+
+  /* ---------------- 2D / 3D ---------------- */
+  function setMode(m, quiet) {
+    if (m === '3d' && !R3D) {
+      markMode('3d', true);
+      load3D().then(() => { if (mode === '3d') apply('3d'); })
+        .catch(err => {
+          console.warn('Coulair Run 3D:', err);
+          apply('2d');
+          if (!quiet) toast('3D не запустилось на этом устройстве — играем в 2D');
+        });
+      mode = '3d';
+      return;
+    }
+    apply(m);
+  }
+
+  function apply(m) {
+    mode = m;
+    saveMode(m);
+    markMode(m, false);
+    const on = is3D();
+    canvas.hidden = on;
+    if (R3D) R3D.canvas.hidden = !on;
+    root.classList.toggle('game--3d', !!on);
+    if (on && !root.hidden) R3D.resize(root.clientWidth || window.innerWidth, root.clientHeight || window.innerHeight);
+  }
+
+  function markMode(m, busy) {
+    root.querySelectorAll('[data-mode]').forEach(b => {
+      b.setAttribute('aria-pressed', String(b.dataset.mode === m));
+      b.classList.toggle('is-loading', busy && b.dataset.mode === '3d');
+    });
+  }
+
+  function load3D() {
+    if (!loading3D) {
+      const url = new URL('js/game3d.js' + (V ? '?v=' + V : ''), document.baseURI).href;
+      loading3D = import(url)
+        .then(mod => { R3D = mod.create(root, canvas); })
+        .catch(err => { loading3D = null; throw err; });
+    }
+    return loading3D;
+  }
+
+  function toast(text) {
+    const el = root.querySelector('[data-game-toast]');
+    el.textContent = text; el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
   }
 
   function setRider(r) {
@@ -135,6 +204,7 @@
     const down = e.type === 'keydown';
     const k = e.key;
     if (k === 'Escape') { if (down) close(); e.stopPropagation(); return; }
+    if (down && !e.repeat && (k === 'v' || k === 'V' || k === 'м' || k === 'М')) { setMode(mode === '3d' ? '2d' : '3d'); return; }
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'a', 'd', 'w', 'ф', 'в', 'ц'].includes(k)) e.preventDefault();
     if (k === 'ArrowLeft' || k === 'a' || k === 'ф') keys.left = down;
     if (k === 'ArrowRight' || k === 'd' || k === 'в') keys.right = down;
@@ -154,7 +224,12 @@
     W = cw / zoom; H = ch / zoom;
     canvas.width = cw * dpr; canvas.height = ch * dpr;
     ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
+    if (is3D()) R3D.resize(cw, ch);
   }
+
+  // в 3D видно далеко вперёд и в стороны — трасса генерируется с запасом (плотность та же)
+  const ahead = () => (is3D() ? Math.max(H * 1.2, 2800) : H * 1.2);
+  const spanX = () => (is3D() ? Math.max(W * 0.75, 1100) : W * 0.75);
 
   /* ---------------- игра ---------------- */
   function reset() {
@@ -205,7 +280,7 @@
     for (const [t, w] of TYPES) { if ((roll -= w) < 0) { type = t; break; } }
     if (type === 'helmet' && P.shield) type = 'flake';
     // на широкой трассе в ряду несколько объектов — плотность одинаковая при любой ширине экрана
-    const perRow = Math.max(1, Math.round(W / 420));
+    const perRow = Math.max(1, Math.round(spanX() / 315));
     for (let i = 0; i < perRow; i++) spawnOne(i === 0 ? type : null);
   }
 
@@ -217,7 +292,7 @@
       for (const [t, w] of TYPES) { if ((roll -= w) < 0) { type = t; break; } }
       if (type === 'helmet' && P.shield) type = 'flake';
     }
-    const x = cam.x + rand(-W * 0.75, W * 0.75);
+    const x = cam.x + rand(-spanX(), spanX());
     const y = spawnY + rand(-20, 20);
     switch (type) {
       case 'tree':   objects.push({ type, x, y, r: 11, h: rand(58, 96), sway: Math.random() * 6 }); break;
@@ -366,7 +441,7 @@
     cam.x += (P.x - cam.x) * Math.min(1, 3 * dt);
 
     // генерация и уборка трассы
-    while (spawnY < P.y + H * 1.2) spawnRow();
+    while (spawnY < P.y + ahead()) spawnRow();
     objects = objects.filter(o => !o.dead && o.y > P.y - H * 0.6);
 
     for (const p of particles) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 260 * dt; }
@@ -1070,8 +1145,16 @@
     last = t;
     clock += dt;
     if (state !== 'start') update(dt);
-    else { P.y += 60 * dt; cam.x = P.x; P.angle = Math.sin(t / 900) * 0.5; P.x += P.angle * 40 * dt; while (spawnY < P.y + H * 1.2) spawnRow(); objects = objects.filter(o => o.y > P.y - H * 0.6); }
-    draw();
+    else { P.y += 60 * dt; cam.x = P.x; P.angle = Math.sin(t / 900) * 0.5; P.x += P.angle * 40 * dt; while (spawnY < P.y + ahead()) spawnRow(); objects = objects.filter(o => o.y > P.y - H * 0.6); }
+    if (is3D()) {
+      try {
+        R3D.render({ dt, clock, state, rider, RIDERS, P, cam, objects, tracks, particles, texts, debris, shake });
+      } catch (err) {
+        console.warn('Coulair Run 3D:', err);
+        R3D = null; loading3D = null; apply('2d'); toast('3D-графика дала сбой — переключились на 2D');
+        draw();
+      }
+    } else draw();
     raf = requestAnimationFrame(frame);
   }
 
