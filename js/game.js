@@ -122,11 +122,16 @@
       const k = btn.dataset.touch;
       const on = e => { e.preventDefault(); if (k === 'jump') jump(); else keys[k] = true; btn.classList.add('is-down'); };
       const off = e => { e.preventDefault(); if (k !== 'jump') keys[k] = false; btn.classList.remove('is-down'); };
-      btn.addEventListener('pointerdown', on);
+      btn.addEventListener('pointerdown', e => { on(e); btn.setPointerCapture?.(e.pointerId); });
       btn.addEventListener('pointerup', off);
       btn.addEventListener('pointercancel', off);
       btn.addEventListener('pointerleave', off);
     });
+
+    // долгое нажатие и двойной тап не выделяют текст и не открывают меню «копировать»
+    root.addEventListener('contextmenu', e => e.preventDefault());
+    root.addEventListener('selectstart', e => e.preventDefault());
+    root.addEventListener('dblclick', e => e.preventDefault());
 
     window.addEventListener('keydown', onKey, true);
     window.addEventListener('keyup', onKey, true);
@@ -1183,6 +1188,7 @@
 
   function open() {
     if (!root) build();
+    window.getSelection?.().removeAllRanges();             // снять выделение, оставшееся на странице
     root.hidden = false;
     document.body.style.overflow = 'hidden';
     resize();

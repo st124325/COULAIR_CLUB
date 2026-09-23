@@ -7,6 +7,13 @@
   touch-action: none; user-select: none; -webkit-user-select: none;
   animation: fade .25s;
 }
+/* в игре ничего не выделяется: ни текст, ни кнопки; без меню долгого нажатия и подсветки тапа */
+.game, .game * {
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.game button:focus:not(:focus-visible) { outline: none; }
 .game__canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 .game__canvas[hidden] { display: none; }
