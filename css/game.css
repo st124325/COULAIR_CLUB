@@ -135,3 +135,58 @@
   .game__hud > div { padding: 6px 10px; }
   .game__title { font-size: 28px; }
 }
+
+/* ---------- кат-сцены ---------- */
+.game__cine { position: absolute; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }
+.game__cine[hidden] { display: none; }
+.game__vignette {
+  position: absolute; inset: 0;
+  background: radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(10,14,24,.55) 100%);
+  animation: cineFade .6s ease both;
+}
+.game__bar { position: absolute; left: 0; right: 0; height: 11vh; background: #07080b; }
+.game__bar--top { top: 0; animation: barTop .55s cubic-bezier(.2,.7,.2,1) both; }
+.game__bar--bottom { bottom: 0; animation: barBottom .55s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes barTop { from { transform: translateY(-100%); } }
+@keyframes barBottom { from { transform: translateY(100%); } }
+@keyframes cineFade { from { opacity: 0; } }
+.game__flash { position: absolute; inset: 0; background: #fff; opacity: 0; transition: opacity .45s ease-out; }
+.game__cine.is-flash .game__flash { opacity: .95; transition: none; }
+
+.game__boom {
+  position: absolute; left: 50%; top: 24%; margin: 0;
+  font: 900 clamp(46px, 11vw, 120px)/1 Manrope, system-ui, sans-serif;
+  letter-spacing: -.02em; color: #ffd23f;
+  -webkit-text-stroke: clamp(4px, 1vw, 9px) #111;
+  paint-order: stroke fill;
+  text-shadow: 6px 7px 0 #d9352b;
+  transform: translate(-50%, -50%) rotate(-8deg) scale(0);
+  opacity: 0;
+}
+.game__cine.is-boom .game__boom { animation: boom 1.5s cubic-bezier(.2,1.6,.3,1) both; }
+@keyframes boom {
+  0% { transform: translate(-50%, -50%) rotate(-20deg) scale(.2); opacity: 0; }
+  14% { transform: translate(-50%, -50%) rotate(-6deg) scale(1.15); opacity: 1; }
+  24% { transform: translate(-50%, -50%) rotate(-9deg) scale(1); }
+  80% { opacity: 1; }
+  100% { transform: translate(-50%, -58%) rotate(-9deg) scale(1.05); opacity: 0; }
+}
+
+.game__caption {
+  position: absolute; left: 0; right: 0; bottom: 11vh;
+  display: grid; justify-items: center; gap: 6px;
+  padding: 18px 16px 22px; text-align: center; color: #fff;
+  background: linear-gradient(0deg, rgba(7,8,11,.75), transparent);
+  opacity: 0; transform: translateY(12px);
+  transition: opacity .5s, transform .5s cubic-bezier(.2,.7,.2,1);
+}
+.game__caption strong { font-size: clamp(24px, 4.2vw, 40px); font-weight: 800; letter-spacing: -.02em; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
+.game__caption span { font-size: clamp(13px, 1.8vw, 16px); font-weight: 600; opacity: .85; }
+.game__cine.is-caption .game__caption { opacity: 1; transform: none; }
+.game__skip {
+  position: absolute; right: 16px; bottom: calc(11vh - 30px); margin: 0;
+  font-size: 12px; font-weight: 600; color: rgba(255,255,255,.55);
+  animation: cineFade 1s .8s ease both;
+}
+.game.is-cine .game__hud, .game.is-cine .game__warn, .game.is-cine .game__touch,
+.game.is-cine .game__view--hud { opacity: 0; pointer-events: none; transition: opacity .3s; }

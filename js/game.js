@@ -27,11 +27,23 @@
     bus:   { len: 150, wid: 32, h: 100, speed: [230, 300], name: 'Сбил автобус!' },
   };
   const TYPES = [                       // вес при генерации трассы
-    ['tree', 44], ['rock', 18], ['flake', 18], ['gate', 8], ['ramp', 7], ['helmet', 3], ['stump', 6],
+    ['tree', 44], ['rock', 18], ['flake', 18], ['gate', 8], ['ramp', 7], ['helmet', 3], ['stump', 6], ['snowpile', 4],
   ];
+  // крутые участки («чёрная трасса»): каждые 3000 ед. (300 м) — стенка; совпадает с рельефом 3D (PITCH_LEN в game3d.js)
+  const PITCH = { len: 3000, from: 0.58, to: 0.78, boost: 0.6 };
+  const pitchF = y => { const t = y / PITCH.len; return t - Math.floor(t); };
+  // крутизна 0…1 (пик в середине стенки)
+  const steepness = y => { const f = pitchF(y); if (f < PITCH.from || f > PITCH.to) return 0; const u = (f - PITCH.from) / (PITCH.to - PITCH.from); return 4 * u * (1 - u); };
+  // трюки в воздухе
+  const TRICK = { spinRate: 9.5, flipRate: 7.5, spinTol: 0.65, flipTol: 0.75 };
+  const GRABS = { ski: ['Мьют-грэб', 'Сэйфти-грэб', 'Тейл-грэб'], board: ['Инди-грэб', 'Мелон', 'Мэтод'] };
+  // йети
+  const YETI = { wake: 110, emerge: 0.45, chase: 9, catchR: 15, giveUp: 700, sprint: 1.6 };
 
   let root, canvas, ctx, W = 0, H = 0, dpr = 1;
   let state = 'start', rider = 'ski', raf = 0, last = 0;
+  let lastCrest = -1;
+  let cine = null;                       // идущая кат-сцена: { kind: 'crash' | 'yeti', t, dur, slow, zoom, … }
   let P, objects, tracks, particles, texts, debris = [], cam, spawnY, score, bonus, best, shake, keys, overTimer, nextRoadY;
   // графика: '2d' — canvas, '3d' — Three.js (js/game3d.js грузится только при первом включении)
   let mode = '2d', R3D = null, loading3D = null, toastTimer = 0;
@@ -70,6 +82,18 @@
         <div class="game__best"><span class="game__label">Рекорд</span><strong data-hud="best">0</strong></div>
       </div>
       <p class="game__warn" data-hud="warn" hidden></p>
+      <div class="game__cine" data-cine hidden aria-live="polite">
+        <div class="game__vignette"></div>
+        <div class="game__bar game__bar--top"></div>
+        <div class="game__bar game__bar--bottom"></div>
+        <div class="game__flash" data-cine-flash></div>
+        <p class="game__boom" data-cine-word></p>
+        <div class="game__caption" data-cine-caption>
+          <strong data-cine-title></strong>
+          <span data-cine-sub></span>
+        </div>
+        <p class="game__skip">Нажми, чтобы пропустить</p>
+      </div>
       <div class="game__view game__view--hud" role="group" aria-label="Графика">
         <button data-mode="2d" aria-pressed="true">2D</button><button data-mode="3d" aria-pressed="false">3D</button>
       </div>
@@ -91,7 +115,7 @@
           <button data-mode="2d" aria-pressed="true">2D</button><button data-mode="3d" aria-pressed="false">3D</button>
         </div>
         <button class="game__start" data-game-start>Поехали</button>
-        <p class="game__keys">← → — поворот · пробел — прыжок · V — 2D/3D · Esc — выход</p>
+        <p class="game__keys">← → — поворот · пробел — прыжок<br>В воздухе: ← → — вращение · держи пробел — сальто · ↓ — грэб<br>V — 2D/3D · Esc — выход</p>
       </div>
 
       <div class="game__panel" data-screen="over" hidden>
@@ -106,6 +130,7 @@
       <div class="game__touch" aria-hidden="true">
         <button data-touch="left">◀</button>
         <button data-touch="jump">▲</button>
+        <button data-touch="grab" aria-label="Грэб">✊</button>
         <button data-touch="right">▶</button>
       </div>`;
     document.body.appendChild(root);
@@ -129,8 +154,18 @@
     // сенсорные кнопки: держишь — едешь в сторону
     root.querySelectorAll('[data-touch]').forEach(btn => {
       const k = btn.dataset.touch;
-      const on = e => { e.preventDefault(); if (k === 'jump') jump(); else keys[k] = true; btn.classList.add('is-down'); };
-      const off = e => { e.preventDefault(); if (k !== 'jump') keys[k] = false; btn.classList.remove('is-down'); };
+      const on = e => {
+        e.preventDefault();
+        if (k === 'jump') { if (state === 'play' && P.air) keys.flip = true; else jump(); }
+        else keys[k] = true;
+        btn.classList.add('is-down');
+      };
+      const off = e => {
+        e.preventDefault();
+        if (k === 'jump') keys.flip = false;
+        else { keys[k] = false; if (k === 'left') P.staleL = false; if (k === 'right') P.staleR = false; }
+        btn.classList.remove('is-down');
+      };
       btn.addEventListener('pointerdown', e => { on(e); btn.setPointerCapture?.(e.pointerId); });
       btn.addEventListener('pointerup', off);
       btn.addEventListener('pointercancel', off);
@@ -138,6 +173,7 @@
     });
 
     // долгое нажатие и двойной тап не выделяют текст и не открывают меню «копировать»
+    root.addEventListener('pointerdown', e => { if (cine && cine.t > 0.4 && !e.target.closest('[data-game-close]')) endCine(); });
     root.addEventListener('contextmenu', e => e.preventDefault());
     root.addEventListener('selectstart', e => e.preventDefault());
     root.addEventListener('dblclick', e => e.preventDefault());
@@ -218,12 +254,17 @@
     const down = e.type === 'keydown';
     const k = e.key;
     if (k === 'Escape') { if (down) close(); e.stopPropagation(); return; }
+    if (cine && down) { e.preventDefault(); if (cine.t > 0.4) endCine(); return; }
     if (down && !e.repeat && (k === 'v' || k === 'V' || k === 'м' || k === 'М')) { setMode(mode === '3d' ? '2d' : '3d'); return; }
-    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'a', 'd', 'w', 'ф', 'в', 'ц'].includes(k)) e.preventDefault();
-    if (k === 'ArrowLeft' || k === 'a' || k === 'ф') keys.left = down;
-    if (k === 'ArrowRight' || k === 'd' || k === 'в') keys.right = down;
-    if (down && (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'ц')) {
-      if (state === 'play') jump();
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'a', 'd', 'w', 's', 'ф', 'в', 'ц', 'ы'].includes(k)) e.preventDefault();
+    if (k === 'ArrowLeft' || k === 'a' || k === 'ф') { keys.left = down; if (!down && P) P.staleL = false; }
+    if (k === 'ArrowRight' || k === 'd' || k === 'в') { keys.right = down; if (!down && P) P.staleR = false; }
+    if (k === 'ArrowDown' || k === 's' || k === 'ы') keys.grab = down;
+    const jumpKey = k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'ц';
+    if (jumpKey && !down) keys.flip = false;
+    if (down && jumpKey) {
+      if (state === 'play' && P.air && !e.repeat) keys.flip = true;          // в воздухе держишь — сальто
+      else if (state === 'play') jump();
       else if (state === 'over' && performance.now() - overTimer > 600) start();
       else if (state === 'start') start();
     }
@@ -248,10 +289,12 @@
   /* ---------------- игра ---------------- */
   function reset() {
     P = { x: 0, y: 0, z: 0, vz: 0, angle: 0, speed: 240, shield: false, inv: 0, crash: 0, spin: 0, air: false, trick: null,
-          crouch: 0.3, plant: null, plantCD: 0 };
+          crouch: 0.3, plant: null, plantCD: 0,
+          rot: 0, flip: 0, grabT: 0, grabbing: false, manual: false, staleL: false, staleR: false, boost: 1, steepT: 0, carried: false };
     objects = []; tracks = []; particles = []; texts = []; debris = [];
+    lastCrest = -1;
     cam = { x: 0 }; spawnY = 200; score = 0; bonus = 0; shake = 0; nextRoadY = ROAD.first;
-    keys = { left: false, right: false };
+    keys = { left: false, right: false, flip: false, grab: false };
     best = load();
     // стартовая поляна без препятствий + пара снежинок, чтобы сразу понять, что собирать
     objects.push({ type: 'flake', x: 0, y: 320, r: 16, rot: 0 }, { type: 'flake', x: 40, y: 420, r: 16, rot: 0 });
@@ -260,6 +303,7 @@
   }
 
   function start() {
+    if (cine) { cine = null; root.classList.remove('is-cine'); cineEl('[data-cine]').hidden = true; }
     reset();
     state = 'play';
     root.querySelectorAll('[data-screen]').forEach(p => { p.hidden = true; });
@@ -277,19 +321,156 @@
     root.querySelector('[data-over-text]').textContent = isBest
       ? 'Новый рекорд! Так держать.'
       : `Спуск ${Math.round(P.y / 10)} м. Рекорд — ${best.toLocaleString('ru-RU')}.`;
-    setTimeout(() => { if (state === 'over') showScreen('over'); }, 700);
+    setTimeout(() => { if (state === 'over' && !cine) showScreen('over'); }, 700);
     hud();
+  }
+
+  /* ---------------- кат-сцены ---------------- */
+  const QUIPS = {
+    tree: ['Ёлка победила по очкам', 'Это была не ёлка, это была судьба', 'Зато шапка снега бесплатно'],
+    crash: ['Лыжи — отдельно, райдер — отдельно', 'Склон 1 : 0 Райдер', 'Инструктор такого не показывал', 'Главное — красиво упасть'],
+    board: ['Доска цела. Самолюбие — не очень', 'Склон 1 : 0 Райдер', 'Главное — красиво упасть'],
+  };
+  function cineEl(sel) { return root.querySelector(sel); }
+  function startCine(kind, opts = {}) {
+    cine = {
+      kind, t: 0, dur: kind === 'yeti' ? 5.6 : 3.8, slow: 0, zoom: 1, pan: 0,
+      focus: opts.focus || { x: P.x, y: P.y }, yeti: opts.yeti || null, stage: '',
+      word: opts.word || '', title: opts.title || '', hit: opts.hit || null,
+    };
+    root.classList.add('is-cine');
+    const el = cineEl('[data-cine]');
+    el.hidden = false;
+    el.classList.remove('is-caption', 'is-boom');
+    void el.offsetWidth;
+    cineEl('[data-cine-word]').textContent = cine.word;
+    cineEl('[data-cine-title]').textContent = cine.title;
+    const q = cine.title.includes('ёлк') ? QUIPS.tree : rider === 'board' ? QUIPS.board : QUIPS.crash;
+    cineEl('[data-cine-sub]').textContent = kind === 'yeti' ? '' : `${pick(q)} · ${Math.round(P.y / 10).toLocaleString('ru-RU')} м`;
+    if (kind === 'crash') {                              // стоп-кадр со вспышкой и надписью
+      el.classList.add('is-flash', 'is-boom');
+      setTimeout(() => el.classList.remove('is-flash'), 60);
+    }
+  }
+  function cineCaption(title, sub, boom) {
+    const el = cineEl('[data-cine]');
+    cineEl('[data-cine-title]').textContent = title;
+    cineEl('[data-cine-sub]').textContent = sub;
+    el.classList.add('is-caption');
+    if (boom !== undefined) {
+      cineEl('[data-cine-word]').textContent = boom;
+      el.classList.remove('is-boom'); void el.offsetWidth; el.classList.add('is-boom');
+    }
+  }
+  function endCine() {
+    if (!cine) return;
+    const y = cine.yeti;
+    if (y && cine.kind === 'yeti') y.dead = true;        // йети скрылся с добычей
+    cine = null;
+    root.classList.remove('is-cine');
+    const el = cineEl('[data-cine]');
+    el.hidden = true; el.classList.remove('is-caption', 'is-boom', 'is-flash');
+    if (state === 'over') showScreen('over');
+  }
+  function updateCine(dt) {
+    const c = cine;
+    c.t += dt;
+    let zoomT = 1;
+    if (c.kind === 'crash') {
+      // стоп-кадр → замедленный кувырок → лежит, звёздочки над головой
+      c.slow = c.t < 0.18 ? 0 : c.t < 2.1 ? 0.28 : 1;
+      zoomT = c.t < 2.4 ? 2.15 : 1.85;
+      if (c.t > 0.5 && c.stage !== 'title') { c.stage = 'title'; cineEl('[data-cine]').classList.add('is-caption'); }
+      c.focus.x += (P.x - c.focus.x) * Math.min(1, 2 * dt);
+      c.focus.y += (P.y - c.focus.y) * Math.min(1, 2 * dt);
+    } else {
+      const y = c.yeti;
+      if (c.t < 0.55) {                                  // хватает: замедление, наезд
+        c.slow = 0.25; zoomT = 2.3;
+      } else if (c.t < 2.4) {                            // поднимает над головой и ревёт
+        c.slow = 1; zoomT = 2.0;
+        if (c.stage !== 'lift') {
+          c.stage = 'lift'; P.carried = true; y.phase = 'caught'; y.t = 0;
+          shake = 16;
+          cineCaption('Попался!', 'Йети не любит, когда его будят', 'РРРАААР!');
+        }
+        const k = Math.min(1, (c.t - 0.55) / 0.5);
+        P.z = 185 * (1 - (1 - k) * (1 - k));
+        if (Math.random() < 0.5) particles.push({ x: y.x + rand(-6, 6), y: y.y - 80, vx: rand(-40, 40), vy: rand(-90, -30), life: rand(0.4, 0.8), t: 0, r: rand(2, 4) });
+        if (c.t > 1.2 && c.t < 1.9) shake = Math.max(shake, 6);
+      } else {                                           // уносит в горы
+        c.slow = 1; zoomT = 1.55;
+        if (c.stage !== 'carry') {
+          c.stage = 'carry'; y.phase = 'carry'; y.t = 0; y.vy = 0;
+          cineCaption('Йети уносит добычу в пещеру…', `Спуск ${Math.round(P.y / 10).toLocaleString('ru-RU')} м · говорят, он просто хотел покататься`);
+        }
+      }
+      if (P.carried) { P.x = y.x; P.y = y.y + 1; P.z = Math.max(P.z, c.stage === 'carry' ? 185 : 0); cam.x += (P.x - cam.x) * Math.min(1, 3 * dt); }
+      c.focus.x += (y.x - c.focus.x) * Math.min(1, 3 * dt);
+      c.focus.y += (y.y - (c.stage === 'carry' ? 85 : 45) - c.focus.y) * Math.min(1, 3 * dt);
+    }
+    c.zoom += (zoomT - c.zoom) * Math.min(1, 2.6 * dt);
+    c.pan += (1 - c.pan) * Math.min(1, 3 * dt);
+    if (c.t > c.dur) endCine();
   }
 
   function jump() {
     if (state !== 'play' || P.z > 0 || P.crash) return;
     P.vz = 300; P.air = true; P.trick = null;
+    takeoff(false);
+  }
+
+  function takeoff(fromRamp) {
+    P.staleL = keys.left; P.staleR = keys.right;         // стрелки, зажатые для поворота, трюк не начинают
+    keys.flip = false;
+    P.rot = 0; P.flip = 0; P.grabT = 0; P.grabbing = false; P.manual = false; P.spin = 0;
+    P.fromRamp = fromRamp;
+  }
+
+  const wrapPi = a => { a %= Math.PI * 2; if (a > Math.PI) a -= Math.PI * 2; if (a < -Math.PI) a += Math.PI * 2; return a; };
+
+  // приземление после ручных трюков: докрутил — очки, нет — падение
+  function landTricks() {
+    if (Math.abs(wrapPi(P.rot)) > TRICK.spinTol || Math.abs(wrapPi(P.flip)) > TRICK.flipTol) {
+      if (P.shield) {
+        P.shield = false; P.inv = 1.6; shake = 8;
+        addText('Жёстко! Шлем спас', P.x, P.y - 50, '#2d7a3e');
+        return;
+      }
+      crashRoad(Math.abs(wrapPi(P.flip)) > TRICK.flipTol ? 'Не докрутил сальто!' : 'Приземлился боком!');
+      return;
+    }
+    const parts = [];
+    let pts = 0;
+    const flips = Math.round(Math.abs(P.flip) / (Math.PI * 2));
+    if (flips) { parts.push((['', '', 'Дабл ', 'Трипл ', 'Квад '][flips] || `${flips}× `) + 'бэкфлип'); pts += [0, 300, 800, 1500, 2500][flips] || 3000; }
+    const turns = Math.round(Math.abs(P.rot) / (Math.PI * 2));
+    if (turns) { parts.push(String(turns * 360)); pts += 100 * turns * (turns + 1); }
+    if (P.grabT > 0.2) {
+      const list = GRABS[rider];
+      parts.push(list[(Math.abs(Math.round(P.rot)) + flips) % list.length]);
+      pts += 60 + Math.round(P.grabT * 120);
+    }
+    if (!parts.length) return;
+    if (P.fromRamp) pts += P.fromRamp === 'big' ? 300 : 100;
+    const mult = 1 + 0.5 * (parts.length - 1);
+    const total = Math.round((pts * mult) / 10) * 10;
+    bonus += total;
+    const name = parts.join(' + ');
+    addText(`${name[0].toUpperCase()}${name.slice(1)}${mult > 1 ? ` ×${mult}` : ''} +${total}`, P.x, P.y - 55, '#d9352b');
+    if (total >= 1000) shake = 5;
   }
 
   function spawnRow() {
     const difficulty = Math.min(1, P.y / 60000);
     spawnY += rand(46, 92) * (1 - difficulty * 0.45);
     if (spawnY > nextRoadY - ROAD.clearBefore) { spawnRoad(nextRoadY); nextRoadY += rand(ROAD.gapMin, ROAD.gapMax); }
+    // знаки «чёрная трасса» над каждой стенкой
+    const crest = Math.floor(spawnY / PITCH.len) * PITCH.len + PITCH.from * PITCH.len;
+    if (spawnY >= crest - 260 && lastCrest !== crest && crest > 600) {
+      lastCrest = crest;
+      for (const s of [-1, 1]) objects.push({ type: 'steepsign', x: cam.x + s * rand(170, 230), y: crest - 240, r: 6 });
+    }
     if (inRoadZone(spawnY)) return;
     const total = TYPES.reduce((s, t) => s + t[1], 0);
     let roll = Math.random() * total, type = 'tree';
@@ -365,6 +546,7 @@
       for (const [t, w] of TYPES) { if ((roll -= w) < 0) { type = t; break; } }
       if (type === 'helmet' && P.shield) type = 'flake';
     }
+    if (type === 'snowpile' && spawnY < 1500) type = 'tree';
     const gap = type === 'gate' ? rand(80, 120) : 0;
     // ищем свободное место: объекты не должны налезать на трамплин, ворота и друг на друга
     let x, y, tries = 0;
@@ -380,6 +562,7 @@
       case 'flake':  objects.push({ type, x, y, r: 18, rot: Math.random() * 6 }); break;
       case 'helmet': objects.push({ type, x, y, r: 20, bob: 0 }); break;
       case 'ramp':   objects.push({ type, x, y, r: 26, w: 60 }); break;
+      case 'snowpile': objects.push({ type, x, y, r: 20, burst: false, eye: Math.random() * 6 }); break;
       case 'gate': {
         objects.push({ type: 'pole', x: x - gap / 2, y, r: 5, color: '#d9352b' });
         objects.push({ type: 'pole', x: x + gap / 2, y, r: 5, color: '#2466d9' });
@@ -396,12 +579,12 @@
     if (type === 'gate') return [gap / 2 + 14, 16];
     return [r + 6, r + 6];
   }
-  const RADIUS = { tree: 11, rock: 17, stump: 9, flake: 18, helmet: 20 };
+  const RADIUS = { tree: 11, rock: 17, stump: 9, flake: 18, helmet: 20, snowpile: 26 };
 
   function isFree(x, y, type, gap) {
     const [ax, ay] = footprint(type, gap, RADIUS[type] || 12);
     for (const o of objects) {
-      if (o.dead || o.type === 'pole' || o.type === 'road' || o.type === 'sign' || Math.abs(o.y - y) > 160) continue;
+      if (o.dead || o.type === 'pole' || o.type === 'road' || o.type === 'sign' || o.type === 'yeti' || o.type === 'steepsign' || Math.abs(o.y - y) > 160) continue;
       const [bx, by] = footprint(o.type, o.gap, o.r);
       if (Math.abs(o.x - x) < ax + bx && Math.abs(o.y - y) < ay + by) return false;
     }
@@ -435,7 +618,16 @@
     for (const kind of gear) {
       debris.push({ kind, x: P.x + rand(-6, 6), y: P.y, z: 6, vx: rand(-160, 160), vy: P.speed * rand(0.35, 0.8), vz: rand(160, 300), rot: rand(0, 6), vr: rand(-14, 14) });
     }
-    gameOver(o.type === 'tree' ? 'Врезался в ёлку!' : o.type === 'pole' ? 'Снёс флаг!' : 'Зацепил камень!');
+    const reason = o.type === 'tree' ? 'Врезался в ёлку!' : o.type === 'pole' ? 'Снёс флаг!' : 'Зацепил камень!';
+    if (o.type === 'tree') {
+      // ёлка трясётся и сбрасывает шапку снега на райдера
+      o.shake = 1.4;
+      for (let i = 0; i < 34; i++) {
+        particles.push({ x: o.x + rand(-16, 16), y: o.y - rand(45, 95), vx: rand(-25, 25), vy: rand(-30, 30), life: rand(2.2, 3.4), t: 0, r: rand(2.5, 5.5), floor: P.y + rand(-4, 8) });
+      }
+    }
+    gameOver(reason);
+    startCine('crash', { word: { tree: 'ХРЯСЬ!', rock: 'БДЫЩ!', stump: 'БДЫЩ!', pole: 'ДЗЫНЬ!' }[o.type] || 'БАМ!', title: reason, focus: { x: (P.x + o.x) / 2, y: (P.y + o.y) / 2 }, hit: { x: o.x, y: o.y, type: o.type } });
   }
 
   // радиус удара — по видимому размеру (ствол и густые нижние лапы, камень, пень, древко)
@@ -458,14 +650,88 @@
       debris.push({ kind, x: P.x + rand(-6, 6), y: P.y, z: 6, vx: rand(-260, 260), vy: P.speed * rand(0.2, 0.6), vz: rand(200, 380), rot: rand(0, 6), vr: rand(-18, 18) });
     }
     gameOver(reason);
+    startCine('crash', { word: /приземл|сальто/i.test(reason) ? 'ШМЯК!' : 'БАМ!', title: reason });
   }
 
-  function launch(o, big) {
+  // йети вылезает из кучи, когда проезжаешь рядом
+  function wakeYeti(o) {
+    o.burst = true;
+    puff(o.x, o.y, 40, 1.7);
+    shake = Math.max(shake, 7);
+    if (objects.some(y => y.type === 'yeti' && y.phase !== 'gone')) return;   // одновременно — один йети
+    objects.push({ type: 'yeti', x: o.x, y: o.y, r: 14, phase: 'emerge', t: 0, run: 0, vx: 0, vy: 0 });
+    addText('ЙЕТИ!', o.x, o.y - 70, '#6d28d9');
+  }
+
+  function updateYeti(o, dt) {
+    o.t += dt;
+    const playing = state === 'play' && !P.crash;
+    if (o.phase === 'emerge') { if (o.t > YETI.emerge) { o.phase = 'chase'; o.t = 0; } return; }
+    if (o.phase === 'chase') {
+      const dx = P.x - o.x, dy = P.y - o.y, d = Math.hypot(dx, dy) || 1;
+      // на прямой чуть медленнее райдера, но делает рывки; в поворотах догоняет
+      const lunge = Math.max(0, Math.sin(o.t * 2.6)) ** 6;
+      // первые секунды — спринт из засады, потом на прямой чуть медленнее райдера
+      const sprint = o.t < YETI.sprint ? 1.4 : 1;
+      const sp = Math.max(280, (P.speed / Math.max(P.boost, 1)) * (0.97 + lunge * 0.24) * Math.max(P.boost * 0.9, 1) * sprint);
+      o.vx = (dx / d) * sp; o.vy = (dy / d) * sp;
+      o.x += o.vx * dt; o.y += o.vy * dt;
+      o.run += dt * sp / 38;
+      o.lunge = lunge;
+      if (Math.random() < 0.35) particles.push({ x: o.x + rand(-8, 8), y: o.y + 2, vx: rand(-50, 50), vy: rand(-60, 0), life: rand(0.25, 0.5), t: 0, r: rand(1.5, 3) });
+      if (playing && d < YETI.catchR && P.z < 40 && P.inv <= 0) {
+        if (P.shield) {
+          P.shield = false; P.inv = 1.6; shake = 10;
+          addText('Шлем спас от йети!', P.x, P.y - 50, '#2d7a3e');
+          o.phase = 'giveup'; o.t = 0; o.vx *= -0.4; o.vy *= -0.4;
+        } else {
+          o.phase = 'caught'; o.t = 0;
+          P.crash = 0.001; shake = 16;
+          puff(P.x, P.y, 34, 1.6);
+          const gear = rider === 'ski' ? ['ski', 'ski', 'pole', 'pole'] : [];
+          for (const kind of gear) debris.push({ kind, x: P.x + rand(-6, 6), y: P.y, z: 6, vx: rand(-160, 160), vy: rand(-60, 160), vz: rand(160, 300), rot: rand(0, 6), vr: rand(-14, 14) });
+          gameOver('Тебя поймал йети!');
+          startCine('yeti', { yeti: o, title: 'Попался!' });
+        }
+        return;
+      }
+      if (playing && (o.t > YETI.chase || (d > YETI.giveUp && o.t > 2.5))) {
+        o.phase = 'giveup'; o.t = 0;
+        bonus += 250; addText('Ушёл от йети +250', P.x, P.y - 60, '#6d28d9');
+      }
+      return;
+    }
+    if (o.phase === 'giveup') {
+      const k = Math.exp(-2.2 * dt);
+      o.vx *= k; o.vy *= k;
+      o.x += o.vx * dt; o.y += o.vy * dt;
+      o.run += dt * Math.hypot(o.vx, o.vy) / 38;
+      return;
+    }
+    if (o.phase === 'carry') {
+      o.vy += (-230 - o.vy) * Math.min(1, 2.5 * dt);          // убегает вверх по склону
+      o.vx += (0 - o.vx) * Math.min(1, 2 * dt);
+      o.x += o.vx * dt; o.y += o.vy * dt;
+      o.run += dt * Math.abs(o.vy) / 32;
+      o.prints = o.prints || [];
+      if (!o.lastPrint || o.lastPrint - o.y > 22) { o.lastPrint = o.y; o.prints.push({ x: o.x + (o.prints.length % 2 ? 7 : -7), y: o.y }); }
+      return;
+    }
+    if (o.phase === 'caught') {
+      o.run += dt * 3;
+      o.roar = (o.roar || 0) - dt;
+      if (o.roar <= 0) { o.roar = 1.2; addText(pick(['РРРАР!', 'УУУРГХ!']), o.x, o.y - 110, '#6d28d9'); }
+    }
+  }
+
+  function launch(o, big, ollie) {
     const t = big
       ? (is3D() ? 'Двойной бэкфлип' : pick(RIDERS[rider].tricks))
       : (is3D() ? 'Бэкфлип' : pick(RIDERS[rider].tricks));   // в 3D с трамплина — сальто назад
-    P.vz = big ? 720 + P.speed * 0.25 : 520 + P.speed * 0.25;
+    P.vz = (big ? 720 + P.speed * 0.25 : 520 + P.speed * 0.25) + (ollie ? 110 : 0);
     P.air = true;
+    takeoff(big ? 'big' : 'ramp');
+    if (ollie) { bonus += 50; addText('Олли с кромки +50', P.x, P.y - 30, '#2466d9'); }
     P.trick = { name: t, points: (big ? 450 : 150) + Math.round(P.speed / 5) * 5, spinRate: rand(9, 14) * (Math.random() < 0.5 ? -1 : 1), big };
     // под райдером в середине полёта проезжает фура — для зрелищности
     const road = big && objects.find(r => r.type === 'road' && r.y > P.y);
@@ -486,11 +752,36 @@
       const target = keys.left && !keys.right ? -1 : keys.right && !keys.left ? 1 : 0;
       const turnRate = rider === 'ski' ? 6.5 : 5.2;
       const prevAngle = P.angle;
-      P.angle += (target - P.angle) * Math.min(1, turnRate * dt);
+      if (!P.air) P.angle += (target - P.angle) * Math.min(1, turnRate * dt);
+      else {
+        // трюки: ← → — вращение, зажатый прыжок — сальто, ↓ — грэб
+        const spinIn = (keys.right && !P.staleR ? 1 : 0) - (keys.left && !P.staleL ? 1 : 0);
+        if (spinIn || keys.flip || keys.grab) {
+          if (!P.manual) {
+            P.manual = true; P.spin = 0;
+            if (P.trick) P.trick.manual = true;
+            else P.trick = { name: '', points: 0, spinRate: 0, manual: true };
+          }
+          P.rot += spinIn * TRICK.spinRate * dt;
+          if (keys.flip) P.flip += TRICK.flipRate * dt;
+        }
+        P.grabbing = keys.grab;
+        if (keys.grab) P.grabT += dt;
+      }
       const carve = Math.abs(P.angle - prevAngle) / dt;
 
       const dist = P.y / 10;
-      P.speed = Math.min(700, 240 + dist * 0.45);
+      const st = steepness(P.y);
+      const boostT = 1 + PITCH.boost * st;
+      P.boost += (boostT - P.boost) * Math.min(1, (boostT > P.boost ? 2.5 : 0.7) * dt);   // разгон быстрый, спад плавный
+      P.speed = Math.min(700, 240 + dist * 0.45) * P.boost;
+      if (st > 0.05) {
+        if (!P.steepT && !P.air) addText('◆ Чёрная трасса!', P.x, P.y - 70, '#16161a');
+        P.steepT += dt;
+      } else if (P.steepT) {
+        if (P.steepT > 0.4 && state === 'play') { bonus += 150; addText('Прошёл крутяк +150', P.x, P.y - 60, '#16161a'); }
+        P.steepT = 0;
+      }
       const brake = 1 - 0.38 * Math.abs(P.angle);
       const vx = P.speed * P.angle * 0.8;
       const vy = P.speed * brake;
@@ -502,23 +793,26 @@
       if (P.air) {
         P.vz -= 900 * dt;
         P.z = Math.max(0, P.z + P.vz * dt);
-        if (P.trick) P.spin += dt * P.trick.spinRate;
+        if (P.trick && !P.manual) P.spin += dt * P.trick.spinRate;
         if (P.z === 0) {
           P.air = false;
           puff(P.x, P.y, 10);
-          if (P.trick) {
+          if (P.manual) {
+            landTricks();
+            P.trick = null;
+          } else if (P.trick) {
             const pts = P.trick.points;
             bonus += pts;
             addText(`${P.trick.name} +${pts}`, P.x, P.y - 50, '#d9352b');
             P.trick = null;
           }
-          P.spin = 0;
+          P.spin = 0; P.rot = 0; P.flip = 0; P.grabbing = false; P.manual = false;
         }
       }
       if (P.inv > 0) P.inv -= dt;
 
       // поза: присед сильнее в повороте и в воздухе; палка втыкается при заходе в поворот
-      const targetCrouch = P.air ? (P.trick ? 0.95 : 0.65) : 0.25 + 0.5 * Math.abs(P.angle) + Math.sin(clock * 7) * 0.03;
+      const targetCrouch = P.air ? (P.trick || P.grabbing ? 0.95 : 0.65) : 0.25 + 0.5 * Math.abs(P.angle) + Math.sin(clock * 7) * 0.03;
       P.crouch += (targetCrouch - P.crouch) * Math.min(1, 9 * dt);
       P.plantCD -= dt;
       if (P.plant) { P.plant.t += dt; if (P.plant.t > 0.3) P.plant = null; }
@@ -544,7 +838,9 @@
         // трамплин срабатывает ровно на кромке (o.y), если райдер на его ширине
         if (o.type === 'ramp' || o.type === 'bigramp') {
           const lip = o.y + (o.lip || 0);
-          if (!P.air && prevY < lip && P.y >= lip && Math.abs(dx) < (o.type === 'bigramp' ? 62 : 32)) launch(o, o.type === 'bigramp');
+          // срабатывает и в невысоком прыжке: залетел на кромку — подбросит ещё выше
+          const low = !P.air || (!P.trick && P.z < 45);
+          if (low && prevY < lip && P.y >= lip && Math.abs(dx) < (o.type === 'bigramp' ? 62 : 32)) launch(o, o.type === 'bigramp', P.air);
           continue;
         }
         if (o.type === 'road') {
@@ -563,7 +859,12 @@
           if (state !== 'play') break;
           continue;
         }
-        if (o.type === 'sign') continue;
+        if (o.type === 'sign' || o.type === 'steepsign' || o.type === 'yeti') continue;
+        if (o.type === 'snowpile') {
+          if (!o.burst && Math.abs(dx) < YETI.wake && Math.abs(dy) < 45) wakeYeti(o);
+          if (!o.hit && P.z < 12 && dx * dx + dy * dy < 22 * 22) { o.hit = true; puff(o.x, o.y, 18, 1.1); addText('Бум!', o.x, o.y - 30, '#2466d9'); }
+          continue;
+        }
         if (o.type === 'gate') {
           if (!o.done && P.y >= o.y) {
             o.done = true;
@@ -595,6 +896,7 @@
     }
 
     if (state !== 'play' || P.crash) for (const o of objects) if (o.type === 'road') updateRoad(o, dt);
+    for (const o of objects) if (o.type === 'yeti') updateYeti(o, dt);
     warn();
 
     // камера плавно следует за райдером
@@ -602,9 +904,13 @@
 
     // генерация и уборка трассы
     while (spawnY < P.y + ahead()) spawnRow();
-    objects = objects.filter(o => !o.dead && o.y > P.y - H * 0.6);
+    objects = objects.filter(o => !o.dead && (o.y > P.y - Math.max(H * 0.6, 500) || (o.type === 'yeti' && o.phase === 'chase')));
 
-    for (const p of particles) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 260 * dt; }
+    for (const p of particles) {
+      p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 260 * dt;
+      if (p.floor !== undefined && p.y > p.floor) { p.y = p.floor; p.vy = 0; p.vx *= 0.3; }
+    }
+    for (const o of objects) if (o.shake > 0) o.shake = Math.max(0, o.shake - dt);
     for (const d of debris) {
       d.vz -= 900 * dt; d.z += d.vz * dt;
       if (d.z <= 0) { d.z = 0; d.vz = -d.vz * 0.3; d.vx *= 0.9; d.vy *= 0.9; d.vr *= 0.8; }
@@ -631,6 +937,14 @@
           const dx = ramp.x - P.x;
           text = Math.abs(dx) < 50 ? '⚠ Трасса! Трамплин прямо — держи курс' : dx < 0 ? '⚠ Трасса! Трамплин левее ←' : '⚠ Трасса! Трамплин правее →';
         } else text = '⚠ Трасса! Прыгай!';
+      }
+    }
+    if (!text && state === 'play' && !P.crash) {
+      if (objects.some(o => o.type === 'yeti' && o.phase === 'chase')) text = '👣 За тобой гонится йети! Не сворачивай зря';
+      else if (steepness(P.y) > 0.05) text = '◆ Крутяк! Скорость растёт';
+      else {
+        const f = pitchF(P.y);
+        if (f > PITCH.from - 0.12 && f < PITCH.from) text = '◆ Впереди чёрная трасса — крутой склон';
       }
     }
     if (text === warnCache) return;
@@ -901,6 +1215,13 @@
     ctx.save();
     ctx.clearRect(0, 0, W, H);
     if (shake) ctx.translate(rand(-shake, shake) * 0.4, rand(-shake, shake) * 0.4);
+    if (cine) {
+      // камера наезжает и уводит точку интереса к центру кадра
+      const [fx, fy] = toScreen(cine.focus.x, cine.focus.y);
+      ctx.translate(fx + (W / 2 - fx) * cine.pan, fy + (H * 0.5 - fy) * cine.pan);
+      ctx.scale(cine.zoom, cine.zoom);
+      ctx.translate(-fx, -fy);
+    }
 
     // снег
     const T = 256;
@@ -910,7 +1231,9 @@
     ctx.restore();
 
     for (const o of objects) if (o.type === 'road') drawRoad(o);
+    drawSteep();
     drawTracks();
+    drawYetiPrints();
 
     const list = objects.filter(o => o.type !== 'road').map(o => ({ y: o.y, o }));
     list.push({ y: P.y, player: true });
@@ -920,6 +1243,20 @@
       if (it.player) drawPlayer();
       else if (it.d) drawDebris(it.d);
       else drawObject(it.o);
+    }
+
+    if (cine && cine.kind === 'crash' && cine.t > 1.4) drawDizzy();
+
+    // полосы скорости на разгоне
+    if (state === 'play' && P.boost > 1.12) {
+      const k = Math.min(1, (P.boost - 1.12) / 0.4);
+      ctx.strokeStyle = `rgba(95,125,180,${0.45 * k})`; ctx.lineWidth = 1.3;
+      for (let i = 0; i < 18; i++) {
+        const x = ((i * 97.3 + (i % 3) * 41) % W);
+        if (Math.abs(x - W / 2) < W * 0.18) continue;
+        const y = (((i * 173.7 - clock * (900 + i * 30)) % (H + 120)) + H + 120) % (H + 120) - 60;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 40 + (i % 4) * 14); ctx.stroke();
+      }
     }
 
     // снежная пыль
@@ -946,6 +1283,235 @@
       ctx.fillText(t.text, sx, yy);
     }
     ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // крутой участок: склон темнеет с крутизной, на бровке — светлый перегиб и тень под ним
+  function drawSteep() {
+    const top = P.y - PLAYER_Y(), bot = top + H;
+    const first = Math.floor(top / PITCH.len) - 1, last = Math.floor(bot / PITCH.len) + 1;
+    for (let i = first; i <= last; i++) {
+      const y0 = (i + PITCH.from) * PITCH.len, y1 = (i + PITCH.to) * PITCH.len;
+      if (y1 < top || y0 > bot) continue;
+      for (let wy = Math.max(y0, top - 4); wy < Math.min(y1, bot); wy += 4) {
+        ctx.fillStyle = `rgba(55,82,138,${0.27 * steepness(wy)})`;
+        ctx.fillRect(0, wy - top, W, 4.5);
+      }
+      // бровка: светлая кромка и резкая тень сразу за ней
+      const cy = y0 - top;
+      if (cy > -40 && cy < H + 40) {
+        const gl = ctx.createLinearGradient(0, cy - 26, 0, cy + 30);
+        gl.addColorStop(0, 'rgba(255,255,255,0)'); gl.addColorStop(0.45, 'rgba(255,255,255,.85)');
+        gl.addColorStop(0.55, 'rgba(120,145,190,.28)'); gl.addColorStop(1, 'rgba(120,145,190,0)');
+        ctx.fillStyle = gl; ctx.fillRect(0, cy - 26, W, 56);
+      }
+      // выкат внизу стенки — снова светлее
+      const by = y1 - top;
+      if (by > -30 && by < H + 30) {
+        const gb = ctx.createLinearGradient(0, by - 24, 0, by + 24);
+        gb.addColorStop(0, 'rgba(62,88,140,.06)'); gb.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = gb; ctx.fillRect(0, by - 24, W, 48);
+      }
+    }
+  }
+
+  // знак «чёрная трасса»: чёрный ромб на столбике
+  function drawSteepSign(sx, sy) {
+    shadow(sx + 6, sy + 1, 9, 2.5);
+    ctx.fillStyle = '#6b7280'; ctx.fillRect(sx - 1.2, sy - 42, 2.4, 42);
+    ctx.save(); ctx.translate(sx, sy - 46);
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.roundRect(-13, -13, 26, 26, 3); ctx.fill();
+    ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 0.8; ctx.stroke();
+    ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = '#111'; ctx.fillRect(-6.5, -6.5, 13, 13);
+    ctx.restore();
+    ctx.fillStyle = '#111'; ctx.font = '800 6px Manrope, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('КРУТО', sx, sy - 28);
+  }
+
+  // снежная куча: пухлый сугроб; в целой куче иногда моргают глаза
+  function drawSnowpile(sx, sy, o) {
+    shadow(sx + 7, sy + 2, 30, 7, 0.22);
+    if (o.burst) {
+      ctx.fillStyle = '#eef3fa';
+      ctx.beginPath(); ctx.ellipse(sx, sy - 2, 26, 7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      for (const [dx, dy, r] of [[-18, -6, 6], [14, -5, 7], [-4, -9, 5], [22, 2, 4], [-24, 2, 4]]) {
+        ctx.beginPath(); ctx.ellipse(sx + dx, sy + dy, r, r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(40,50,70,.35)';
+      ctx.beginPath(); ctx.ellipse(sx, sy - 3, 11, 4, 0, 0, Math.PI * 2); ctx.fill();    // яма, откуда вылез
+      return;
+    }
+    const g = ctx.createRadialGradient(sx - 10, sy - 26, 2, sx + 4, sy - 10, 38);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.55, '#eef4fc'); g.addColorStop(1, '#bccbe2');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(sx - 32, sy);
+    ctx.bezierCurveTo(sx - 32, sy - 20, sx - 18, sy - 34, sx - 4, sy - 33);
+    ctx.bezierCurveTo(sx + 6, sy - 40, sx + 24, sy - 30, sx + 26, sy - 18);
+    ctx.bezierCurveTo(sx + 34, sy - 14, sx + 34, sy - 2, sx + 30, sy);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.ellipse(sx - 10, sy - 27, 8, 3, -0.3, 0, Math.PI * 2); ctx.fill();
+    // ветки торчат
+    ctx.strokeStyle = '#5b3a24'; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(sx + 14, sy - 26); ctx.lineTo(sx + 22, sy - 38); ctx.moveTo(sx + 19, sy - 33); ctx.lineTo(sx + 25, sy - 34); ctx.stroke();
+    // глаза: когда райдер близко — моргают в тёмной щели
+    const near = Math.abs(o.y - P.y) < 320 && Math.abs(o.x - P.x) < 260;
+    const blink = Math.sin(clock * 2.3 + o.eye) > -0.85;
+    if (near && blink) {
+      ctx.fillStyle = 'rgba(20,28,45,.75)';
+      ctx.beginPath(); ctx.ellipse(sx - 2, sy - 14, 10, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+      for (const ex of [-6, 2]) {
+        const gl = ctx.createRadialGradient(sx + ex, sy - 14, 0, sx + ex, sy - 14, 5);
+        gl.addColorStop(0, 'rgba(255,230,90,1)'); gl.addColorStop(1, 'rgba(255,120,40,0)');
+        ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(sx + ex, sy - 14, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#1a0a00'; ctx.fillRect(sx + ex - 0.6, sy - 15.5, 1.2, 3);
+      }
+    }
+  }
+
+  // следы огромных лап, когда йети уносит добычу
+  function drawYetiPrints() {
+    for (const o of objects) {
+      if (o.type !== 'yeti' || !o.prints) continue;
+      for (const pr of o.prints) {
+        const [sx, sy] = toScreen(pr.x, pr.y);
+        ctx.fillStyle = 'rgba(110,135,180,.35)';
+        ctx.beginPath(); ctx.ellipse(sx, sy, 5, 8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(110,135,180,.28)';
+        for (const t of [-3.5, 0, 3.5]) { ctx.beginPath(); ctx.arc(sx + t, sy - 9, 1.6, 0, Math.PI * 2); ctx.fill(); }
+      }
+    }
+  }
+
+  // после падения: звёздочки и птички кружат над головой
+  function drawDizzy() {
+    const [sx, sy] = toScreen(P.x, P.y);
+    const cx = sx + 14, cy = sy - 22;
+    const a0 = clock * 3.2;
+    for (let i = 0; i < 5; i++) {
+      const a = a0 + (i / 5) * Math.PI * 2;
+      const x = cx + Math.cos(a) * 17, y = cy + Math.sin(a) * 6;
+      const front = Math.sin(a) > 0;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(a * 1.5);
+      if (i % 2) {
+        ctx.fillStyle = front ? '#ffd23f' : '#e0a800';
+        ctx.beginPath();
+        for (let k = 0; k < 10; k++) {
+          const r = k % 2 ? 1.8 : 4.4, b = (k / 10) * Math.PI * 2 - Math.PI / 2;
+          k ? ctx.lineTo(Math.cos(b) * r, Math.sin(b) * r) : ctx.moveTo(Math.cos(b) * r, Math.sin(b) * r);
+        }
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = 'rgba(120,80,0,.6)'; ctx.lineWidth = 0.6; ctx.stroke();
+      } else {
+        ctx.strokeStyle = '#2b3445'; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+        const f = Math.sin(clock * 14 + i) * 1.5;
+        ctx.beginPath(); ctx.moveTo(-4, -f); ctx.quadraticCurveTo(-2, -2, 0, 0); ctx.quadraticCurveTo(2, -2, 4, -f); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  // лохматый контур: неровные пряди меха по эллипсу
+  function furBlob(cx, cy, rx, ry, seed, tuft = 3.5) {
+    ctx.beginPath();
+    const n = 36;
+    for (let i = 0; i <= n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const k = 1 + (i % 2 ? tuft / Math.max(rx, ry) : -0.02) + Math.sin(i * 2.7 + seed) * 0.04;
+      const x = cx + Math.cos(a) * rx * k, y = cy + Math.sin(a) * ry * k;
+      if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+  }
+  function furFill(cx, cy, r) {
+    const g = ctx.createRadialGradient(cx - r * 0.4, cy - r * 0.5, r * 0.1, cx, cy, r * 1.3);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.55, '#e8eef6'); g.addColorStop(1, '#a9bcd4');
+    return g;
+  }
+
+  // йети: огромный, лохматый, бежит на зрителя (вниз по склону)
+  function drawYeti(sx, sy, o) {
+    const ph = o.run;
+    const back = o.phase === 'carry';                              // убегает вверх по склону — видно спину
+    const caught = o.phase === 'caught' || back, tired = o.phase === 'giveup' && Math.hypot(o.vx, o.vy) < 60;
+    const lunge = o.phase === 'chase' ? o.lunge || 0 : 0;
+    let rise = 0;
+    if (o.phase === 'emerge') rise = (1 - Math.min(1, o.t / YETI.emerge)) * 78;
+    shadow(sx + 8, sy + 3, 26, 7, 0.3 * (1 - rise / 90));
+    ctx.save();
+    if (rise) { ctx.beginPath(); ctx.rect(sx - 80, sy - 200, 160, 202); ctx.clip(); }   // «из-под снега»
+    ctx.translate(sx, sy + rise + (o.phase === 'chase' || o.phase === 'carry' ? -Math.abs(Math.sin(ph)) * 3 : 0));
+    ctx.scale(1.25, 1.25);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    // ноги
+    const moving = o.phase === 'chase' || o.phase === 'carry' || o.phase === 'giveup';
+    const lL = moving ? Math.max(0, Math.sin(ph)) * 9 : 0, lR = moving ? Math.max(0, -Math.sin(ph)) * 9 : 0;
+    for (const [x, lift] of [[-9, lL], [9, lR]]) {
+      ctx.strokeStyle = '#c9d6e6'; ctx.lineWidth = 12;
+      ctx.beginPath(); ctx.moveTo(x * 0.8, -20); ctx.lineTo(x, -4 - lift); ctx.stroke();
+      ctx.strokeStyle = '#f4f7fb'; ctx.lineWidth = 9;
+      ctx.beginPath(); ctx.moveTo(x * 0.8 - 1, -20); ctx.lineTo(x - 1, -4 - lift); ctx.stroke();
+      ctx.fillStyle = '#8193ab';
+      ctx.beginPath(); ctx.ellipse(x, -1 - lift, 7.5, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2b3240';
+      for (const t of [-4, 0, 4]) { ctx.beginPath(); ctx.arc(x + t, 2 - lift, 1.1, 0, Math.PI * 2); ctx.fill(); }
+    }
+    // руки: машут на бегу, в рывке тянутся вперёд, когда поймал — над головой
+    const armUp = caught ? 1.4 : tired ? -0.2 : 0.55 + lunge * 0.8;
+    const sw = caught || tired ? 0 : Math.sin(ph) * 0.7;
+    for (const side of [-1, 1]) {
+      const a = armUp + side * sw;
+      const hx = side * (20 + Math.cos(a) * 6), hy = -48 - Math.sin(a) * 20 + (tired ? 18 : 0);
+      ctx.strokeStyle = '#c3d0e2'; ctx.lineWidth = 11;
+      ctx.beginPath(); ctx.moveTo(side * 15, -50); ctx.quadraticCurveTo(side * 26, -42, hx, hy); ctx.stroke();
+      ctx.strokeStyle = '#f4f7fb'; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(side * 15 - side, -51); ctx.quadraticCurveTo(side * 25, -43, hx - side, hy - 1); ctx.stroke();
+      ctx.fillStyle = '#8193ab'; ctx.beginPath(); ctx.arc(hx, hy, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#1f2430'; ctx.lineWidth = 1.2;
+      for (const c of [-0.5, 0, 0.5]) { ctx.beginPath(); ctx.moveTo(hx + c * 5, hy - 3); ctx.lineTo(hx + c * 7, hy - 8); ctx.stroke(); }
+    }
+    // туловище
+    furBlob(0, -38, 19, 23, 1.3);
+    ctx.fillStyle = furFill(0, -38, 22); ctx.fill();
+    ctx.strokeStyle = 'rgba(120,145,180,.5)'; ctx.lineWidth = 0.8;
+    for (let i = 0; i < 14; i++) {                               // пряди меха
+      const x = -13 + (i % 7) * 4.3, y = -50 + Math.floor(i / 7) * 16 + (i % 2) * 4;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 1.5, y + 4, x - 0.5, y + 8); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(206,218,234,.55)';
+    ctx.beginPath(); ctx.ellipse(0, -32, 10, 12, 0, 0, Math.PI * 2); ctx.fill();    // живот
+    // голова
+    furBlob(0, -65, 13, 12, 4.1, 3);
+    ctx.fillStyle = furFill(0, -65, 13); ctx.fill();
+    if (back) {
+      // затылок и спина: только мех и тень
+      ctx.fillStyle = 'rgba(150,170,200,.45)';
+      ctx.beginPath(); ctx.ellipse(0, -60, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      return;
+    }
+    const face = ctx.createLinearGradient(0, -71, 0, -54);
+    face.addColorStop(0, '#9fb3cb'); face.addColorStop(1, '#6f86a3');
+    ctx.fillStyle = face;
+    ctx.beginPath(); ctx.ellipse(0, -62, 8.5, 8.5, 0, 0, Math.PI * 2); ctx.fill();
+    // брови и злые глаза
+    ctx.strokeStyle = '#2b3445'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(-6.5, -68.5); ctx.lineTo(-1.5, -66.5); ctx.moveTo(6.5, -68.5); ctx.lineTo(1.5, -66.5); ctx.stroke();
+    for (const ex of [-3.6, 3.6]) {
+      ctx.fillStyle = '#fff8d6'; ctx.beginPath(); ctx.ellipse(ex, -64.5, 2.2, 1.7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#c1121f'; ctx.beginPath(); ctx.arc(ex + (P.x - o.x > 0 ? 0.5 : -0.5), -64.4, 1, 0, Math.PI * 2); ctx.fill();
+    }
+    // пасть с клыками — шире в рывке и когда рычит
+    const open = caught ? 5 : 2.6 + lunge * 2.5 + Math.max(0, Math.sin(clock * 6)) * 0.6;
+    ctx.fillStyle = '#5b0f1a';
+    ctx.beginPath(); ctx.ellipse(0, -57.5, 5.2, open, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    for (const fx of [-3, 3]) { ctx.beginPath(); ctx.moveTo(fx - 1.1, -57.5 - open + 0.6); ctx.lineTo(fx + 1.1, -57.5 - open + 0.6); ctx.lineTo(fx, -57.5 - open + 3.2); ctx.closePath(); ctx.fill(); }
+    for (const fx of [-2.2, 2.2]) { ctx.beginPath(); ctx.moveTo(fx - 0.9, -57.5 + open - 0.5); ctx.lineTo(fx + 0.9, -57.5 + open - 0.5); ctx.lineTo(fx, -57.5 + open - 2.6); ctx.closePath(); ctx.fill(); }
     ctx.restore();
   }
 
@@ -1005,7 +1571,8 @@
       case 'tree': {
         const sp = SPR.pines[o.v % SPR.pines.length];
         shadow(sx + sp.w * 0.28, sy + 2, sp.w * 0.55, 8, 0.26);
-        ctx.drawImage(sp, sx - sp.w / 2, sy - sp.baseY, sp.w, sp.h);
+        const wob = o.shake ? Math.sin(clock * 45) * o.shake * 2.6 : 0;
+        ctx.drawImage(sp, sx - sp.w / 2 + wob, sy - sp.baseY, sp.w, sp.h);
         break;
       }
       case 'rock': {
@@ -1034,6 +1601,9 @@
       }
       case 'sign': drawSign(sx, sy, o); break;
       case 'pole': drawGatePole(sx, sy, o); break;
+      case 'snowpile': drawSnowpile(sx, sy, o); break;
+      case 'yeti': drawYeti(sx, sy, o); break;
+      case 'steepsign': drawSteepSign(sx, sy); break;
       case 'flake': drawFlakePickup(sx, sy, o); break;
       case 'helmet': drawHelmetPickup(sx, sy, o); break;
     }
@@ -1420,13 +1990,21 @@
 
     ctx.save();
     ctx.translate(sx, sy);
-    const pose = { crouch: P.crouch, plant: P.plant, grab: P.air && P.trick && P.z > 40, noGear: false };
-    if (P.crash) {
+    const pose = { crouch: P.crouch, plant: P.plant, grab: (P.air && P.trick && !P.manual && P.z > 40) || P.grabbing, noGear: false };
+    if (P.carried) {
+      ctx.rotate(Math.sin(clock * 9) * 0.3);                       // болтается и дрыгает ногами
+      pose.noGear = rider === 'ski';
+      pose.crouch = 0.15 + Math.abs(Math.sin(clock * 11)) * 0.45;
+    } else if (P.crash) {
       const k = Math.min(P.crash / 0.7, 1);
       ctx.rotate(k * Math.PI * 1.5);                            // кувырок и падение на бок
       ctx.translate(0, k * 6);
       pose.noGear = rider === 'ski';
       pose.crouch = 0.9;
+    } else if (P.manual) {
+      ctx.rotate(P.rot);                                           // вращение — в плоскости экрана
+      const c = Math.cos(P.flip);                                  // сальто — «переворачивание» спрайта
+      ctx.scale(1, Math.sign(c || 1) * Math.max(0.12, Math.abs(c)));
     } else if (P.spin) ctx.rotate(P.spin);
     ctx.scale(1.12, 1.12);
     if (rider === 'ski') drawSkier(pose); else drawBoarder(pose);
@@ -1449,11 +2027,12 @@
     const dt = last ? Math.min((t - last) / 1000, 0.04) : 0.016;
     last = t;
     clock += dt;
-    if (state !== 'start') update(dt);
+    if (cine) updateCine(dt);
+    if (state !== 'start') update(cine ? dt * cine.slow : dt);
     else { P.y += 60 * dt; cam.x = P.x; P.angle = Math.sin(t / 900) * 0.5; P.x += P.angle * 40 * dt; while (spawnY < P.y + ahead()) spawnRow(); objects = objects.filter(o => o.y > P.y - H * 0.6); }
     if (is3D()) {
       try {
-        R3D.render({ dt, clock, state, rider, RIDERS, P, cam, objects, tracks, particles, texts, debris, shake });
+        R3D.render({ dt: cine ? dt * Math.max(cine.slow, 0.05) : dt, realDt: dt, clock, state, rider, RIDERS, P, cam, objects, tracks, particles, texts, debris, shake, cine });
       } catch (err) {
         console.warn('Coulair Run 3D:', err);
         R3D = null; loading3D = null; apply('2d'); toast('3D-графика дала сбой — переключились на 2D');
@@ -1486,4 +2065,9 @@
   }
 
   window.CoulairGame = { open, close };
+  // для автотестов: состояние игры доступно только с ?gamedebug в адресе
+  if (/[?&]gamedebug/.test(location.search)) window.__coulairRun = () => ({
+    P, objects, keys, state, texts, get bonus() { return bonus; },
+    teleport(y) { P.y = y; cam.x = P.x; objects.length = 0; tracks.length = 0; spawnY = y + 200; nextRoadY = y + 20000; },
+  });
 })();

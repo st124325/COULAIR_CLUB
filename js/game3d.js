@@ -546,9 +546,9 @@ function flakeGeometry() {
    Высота над плоскостью склона (м) по мировым координатам в метрах: gx — поперёк, gz — вниз по склону.
    Одна и та же формула в JS (объекты, райдер, камера) и в шейдере земли. */
 const TAN_SLOPE = Math.tan(SLOPE);
-const PITCH_LEN = 240, PITCH_DROP = 14;                  // каждые 240 м — крутой участок с перепадом 14 м
+const PITCH_LEN = 240, PITCH_DROP = 26;                  // каждые 240 м — «чёрная трасса»: стенка с перепадом 26 м (как PITCH в game.js)
 const ROAD_FLAT = 9;                                      // плавный переход от склона к полотну трассы, м
-const pitchH = gz => { const t = gz / PITCH_LEN, f = t - Math.floor(t); return -PITCH_DROP * (Math.floor(t) + smooth(0.55, 0.8, f)); };
+const pitchH = gz => { const t = gz / PITCH_LEN, f = t - Math.floor(t); return -PITCH_DROP * (Math.floor(t) + smooth(0.58, 0.78, f)); };
 const rollsH = (gx, gz) =>
   2.6 * Math.sin(gz * 0.042 + 0.7) * (0.65 + 0.35 * Math.sin(gx * 0.021 + 1.1)) +
   1.25 * Math.sin(gz * 0.105 + gx * 0.047 + 1.3) +
@@ -564,7 +564,7 @@ function terrH(gx, gz) {
 }
 const TERRAIN_GLSL = `
   uniform vec2 uOff; uniform vec2 uShift; uniform float uRef; uniform vec2 uRoad;
-  float pitchH(float gz) { float t = gz / ${PITCH_LEN.toFixed(1)}; return -${PITCH_DROP.toFixed(1)} * (floor(t) + smoothstep(0.55, 0.8, fract(t))); }
+  float pitchH(float gz) { float t = gz / ${PITCH_LEN.toFixed(1)}; return -${PITCH_DROP.toFixed(1)} * (floor(t) + smoothstep(0.58, 0.78, fract(t))); }
   float rollsH(float gx, float gz) {
     return 2.6 * sin(gz * 0.042 + 0.7) * (0.65 + 0.35 * sin(gx * 0.021 + 1.1))
          + 1.25 * sin(gz * 0.105 + gx * 0.047 + 1.3)
@@ -1367,7 +1367,126 @@ export function create(root, canvas2d) {
   const pickupAccent = new THREE.MeshStandardMaterial({ color: '#5dff3a', emissive: '#5dff3a', emissiveIntensity: 0.5 });
 
   /* ----- фабрики объектов трассы ----- */
+  /* ----- снежная куча (в ней прячется йети) ----- */
+  const eyeMat = new THREE.MeshBasicMaterial({ color: '#ffd84a' });
+  const holeMat = new THREE.MeshBasicMaterial({ color: '#1b2233', transparent: true, opacity: 0.8 });
+  function makeSnowpile(o) {
+    const g = new THREE.Group();
+    const mound = new THREE.Mesh(new THREE.SphereGeometry(1.7, 18, 9, 0, Math.PI * 2, 0, Math.PI / 2), moundMat);
+    mound.scale.set(1, 0.72, 0.85); mound.castShadow = true; mound.receiveShadow = true;
+    const lumps = [0, 1, 2].map(i => {
+      const l = new THREE.Mesh(new THREE.SphereGeometry(0.55 + i * 0.1, 12, 8), whiteMat);
+      l.scale.y = 0.7; l.position.set(Math.cos(i * 2.3) * 1.1, 0.35, Math.sin(i * 2.3) * 0.8); l.castShadow = true;
+      return l;
+    });
+    const twig = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.04, 1.1, 5), new THREE.MeshStandardMaterial({ color: '#5b3a24', roughness: 0.9 }));
+    twig.position.set(0.7, 1.3, 0.2); twig.rotation.z = -0.6;
+    // щель с глазами смотрит вверх по склону — навстречу райдеру
+    const hole = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 6), holeMat);
+    hole.scale.set(1, 0.4, 0.3); hole.position.set(0, 0.62, -1.28); hole.visible = false;
+    const eyes = new THREE.Group();
+    for (const x of [-0.17, 0.17]) {
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 6), eyeMat);
+      e.position.set(x, 0.64, -1.4); eyes.add(e);
+    }
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot('255,200,60'), depthWrite: false, opacity: 0.5 }));
+    glow.scale.set(1.2, 0.6, 1); glow.position.set(0, 0.64, -1.45); eyes.add(glow);
+    eyes.visible = false;
+    g.add(mound, ...lumps, twig, hole, eyes, decal(4.2, 0.8));
+    g.userData = { mound, lumps, eyes, hole, burst: false };
+    return g;
+  }
+
+  /* ----- йети: мех, синеватое лицо, клыки, когти ----- */
+  const furTex = canvasTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#f3f6fb'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 1400; i++) {
+      const x = Math.random() * w, y = Math.random() * h, l = 6 + Math.random() * 12;
+      c.strokeStyle = Math.random() < 0.5 ? 'rgba(170,190,215,.35)' : 'rgba(255,255,255,.8)';
+      c.lineWidth = 1 + Math.random();
+      c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + 2, y + l / 2, x - 1, y + l); c.stroke();
+    }
+  }, { repeat: true });
+  furTex.repeat.set(2, 2);
+  const furMat = new THREE.MeshStandardMaterial({ map: furTex, color: '#ffffff', roughness: 0.95 });
+  const yetiSkin = new THREE.MeshStandardMaterial({ color: '#7e95b3', roughness: 0.65 });
+  const yetiDark = new THREE.MeshStandardMaterial({ color: '#1e2533', roughness: 0.6 });
+  const yetiMouth = new THREE.MeshStandardMaterial({ color: '#5b0f1a', roughness: 0.5 });
+  const fangMat = new THREE.MeshStandardMaterial({ color: '#fbfbf6', roughness: 0.3 });
+  const yetiEye = new THREE.MeshStandardMaterial({ color: '#ffe9a8', emissive: '#ff3b1f', emissiveIntensity: 1.6 });
+  function makeYeti() {
+    const g = new THREE.Group();
+    const up = new THREE.Group(); up.rotation.x = -SLOPE; g.add(up);          // стоит вертикально на склоне
+    const yawG = new THREE.Group(); up.add(yawG);
+    const body = new THREE.Group(); yawG.add(body);
+    const mesh = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; return m; };
+    const torso = mesh(new THREE.SphereGeometry(1, 20, 16), furMat, 0, 1.6, 0); torso.scale.set(0.78, 0.98, 0.62); body.add(torso);
+    const belly = mesh(new THREE.SphereGeometry(1, 16, 12), yetiSkin, 0, 1.45, 0.32); belly.scale.set(0.42, 0.55, 0.32);
+    belly.material = new THREE.MeshStandardMaterial({ color: '#c9d6e8', roughness: 0.9 }); body.add(belly);
+    // пряди-клочья по контуру
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      const tuft = mesh(new THREE.ConeGeometry(0.13, 0.42, 5), furMat, Math.cos(a) * 0.72, 1.6 + Math.sin(a * 2) * 0.35, Math.sin(a) * 0.5);
+      tuft.rotation.z = -Math.cos(a) * 1.3; tuft.rotation.x = Math.sin(a) * 1.3; body.add(tuft);
+    }
+    // голова
+    const head = new THREE.Group(); head.position.set(0, 2.55, 0.05); body.add(head);
+    const skull = mesh(new THREE.SphereGeometry(0.48, 18, 14), furMat, 0, 0, 0); skull.scale.set(1, 0.95, 0.95); head.add(skull);
+    const face = mesh(new THREE.SphereGeometry(0.33, 16, 12), yetiSkin, 0, -0.04, 0.3); face.scale.set(1, 1, 0.55); head.add(face);
+    for (const x of [-0.12, 0.12]) {
+      head.add(mesh(new THREE.SphereGeometry(0.06, 10, 8), yetiEye, x, 0.06, 0.46));
+      const brow = mesh(new THREE.BoxGeometry(0.17, 0.04, 0.05), yetiDark, x, 0.15, 0.45); brow.rotation.z = x > 0 ? 0.45 : -0.45; head.add(brow);
+    }
+    const mouth = mesh(new THREE.SphereGeometry(0.15, 12, 8), yetiMouth, 0, -0.16, 0.45); mouth.scale.set(1.25, 0.8, 0.45); head.add(mouth);
+    for (const x of [-0.08, 0.08]) {
+      const f = mesh(new THREE.ConeGeometry(0.03, 0.1, 5), fangMat, x, -0.08, 0.52); f.rotation.x = Math.PI; head.add(f);
+    }
+    // руки: шарнир в плече, висят вниз
+    const arms = [-1, 1].map(sd => {
+      const pivot = new THREE.Group(); pivot.position.set(sd * 0.74, 2.1, 0);
+      const arm = mesh(new THREE.CapsuleGeometry(0.21, 0.85, 4, 10), furMat, 0, -0.55, 0); pivot.add(arm);
+      const hand = mesh(new THREE.SphereGeometry(0.21, 12, 10), yetiSkin, 0, -1.12, 0); pivot.add(hand);
+      for (const c of [-0.09, 0, 0.09]) {
+        const claw = mesh(new THREE.ConeGeometry(0.035, 0.16, 5), yetiDark, c, -1.3, 0.08); claw.rotation.x = Math.PI - 0.4; pivot.add(claw);
+      }
+      body.add(pivot);
+      return pivot;
+    });
+    // ноги: шарнир в бедре
+    const legs = [-1, 1].map(sd => {
+      const pivot = new THREE.Group(); pivot.position.set(sd * 0.34, 0.98, 0);
+      pivot.add(mesh(new THREE.CapsuleGeometry(0.25, 0.5, 4, 10), furMat, 0, -0.45, 0));
+      const foot = mesh(new THREE.SphereGeometry(0.3, 12, 8), yetiSkin, 0, -0.9, 0.14); foot.scale.set(1, 0.45, 1.45); pivot.add(foot);
+      body.add(pivot);
+      return pivot;
+    });
+    g.add(decal(3.4, 0.9));
+    g.userData = { yawG, body, arms, legs, mouth, head };
+    return g;
+  }
+
+  /* ----- знак «чёрная трасса» ----- */
+  const steepTex = canvasTex(128, 128, (c, w, h) => {
+    c.fillStyle = '#ffffff'; c.fillRect(0, 0, w, h);
+    c.strokeStyle = '#d1d5db'; c.lineWidth = 4; c.strokeRect(2, 2, w - 4, h - 4);
+    c.save(); c.translate(w / 2, h / 2 - 10); c.rotate(Math.PI / 4); c.fillStyle = '#111'; c.fillRect(-26, -26, 52, 52); c.restore();
+    c.fillStyle = '#111'; c.font = '800 20px Manrope, sans-serif'; c.textAlign = 'center'; c.fillText('КРУТО', w / 2, h - 12);
+  });
+  const steepPlateMat = new THREE.MeshStandardMaterial({ map: steepTex, roughness: 0.6 });
+  function makeSteepSign() {
+    const g = new THREE.Group();
+    g.rotation.x = -SLOPE;
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.6, 8).translate(0, 1.3, 0), new THREE.MeshStandardMaterial({ color: '#6b7280', metalness: 0.6, roughness: 0.4 }));
+    post.castShadow = true; g.add(post);
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), steepPlateMat);
+    plate.position.set(0, 2.4, -0.06); plate.rotation.y = Math.PI; plate.castShadow = true; g.add(plate);
+    return g;
+  }
+
   const make = {
+    snowpile: makeSnowpile,
+    yeti: makeYeti,
+    steepsign: makeSteepSign,
     tree(o) {
       const g = new THREE.Group();
       const i = (Math.random() * treeGeos.length) | 0;
@@ -1640,6 +1759,40 @@ export function create(root, canvas2d) {
         case 'tree':
           ud.mesh.rotation.z = Math.sin(t3 * 1.3 + ud.sway) * 0.012;
           break;
+        case 'snowpile': {
+          if (o.burst && !ud.burst) {
+            ud.burst = true;
+            ud.mound.scale.y *= 0.28; ud.mound.scale.x *= 1.15;
+            ud.lumps.forEach((l, i) => { l.position.set(Math.cos(i * 2.1) * 1.9, 0.12, Math.sin(i * 2.1) * 1.6); });
+            ud.hole.visible = true; ud.hole.position.y = 0.12;
+          }
+          const near = !o.burst && Math.abs(o.y - P.y) < 320 && Math.abs(o.x - P.x) < 260;
+          ud.eyes.visible = near && Math.sin(t3 * 2.3 + o.eye) > -0.85;
+          ud.hole.visible = ud.burst || ud.eyes.visible;
+          break;
+        }
+        case 'yeti': {
+          const k = o.phase === 'emerge' ? Math.min(1, o.t / 0.45) : 1;
+          const carry = o.phase === 'carry';
+          const caught = o.phase === 'caught' || carry, tired = o.phase === 'giveup' && Math.hypot(o.vx, o.vy) < 60;
+          const lunge = o.phase === 'chase' ? o.lunge || 0 : 0;
+          const ph = o.run;
+          ud.body.position.y = -3.2 * (1 - k * k) + (o.phase === 'chase' || carry ? Math.abs(Math.sin(ph)) * 0.14 : 0);
+          ud.body.rotation.x = o.phase === 'chase' ? 0.22 + lunge * 0.25 : tired ? 0.35 : 0;
+          // смотрит на райдера
+          const dxm = mx(P.x) - obj.position.x, dzm = -obj.position.z;
+          ud.yawG.rotation.y = carry ? Math.PI : Math.atan2(dxm, dzm);
+          ud.legs.forEach((l, i) => { l.rotation.x = o.phase === 'chase' || o.phase === 'giveup' || carry ? Math.sin(ph + i * Math.PI) * 0.85 : 0; });
+          const armUp = caught ? 2.9 : tired ? 0.15 : 1.1 + lunge * 1.0;
+          ud.arms.forEach((a, i) => {
+            const sw = caught || tired ? 0 : Math.sin(ph + (i ? 0 : Math.PI)) * 0.55;
+            a.rotation.x = -(armUp + sw);
+            a.rotation.z = (i ? -1 : 1) * (caught ? 0.5 : 0.25);
+          });
+          ud.mouth.scale.y = caught ? 1.7 : 0.8 + lunge * 0.9 + Math.max(0, Math.sin(t3 * 6)) * 0.15;
+          ud.head.rotation.x = caught ? -0.35 : 0;
+          break;
+        }
         case 'pole': {
           const flag = ud.flag, p = flag.geometry.attributes.position, b = flag.userData.base;
           for (let i = 0; i < p.count; i++) {
@@ -1697,7 +1850,7 @@ export function create(root, canvas2d) {
     rollS = damp(rollS, rollT, 8, dt);
 
     const gxP = P.x * S, gzP = P.y * S;
-    let lift = grounded ? surfAt(P.x, P.y) : 0;
+    let lift = grounded || !P.trick ? surfAt(P.x, P.y) : 0;
     const dsdz = grounded ? (surfAt(P.x, P.y + 8) - surfAt(P.x, P.y - 8)) / (16 * S) : 0;
     const dhdz = (terrH(gxP, gzP + 0.8) - terrH(gxP, gzP - 0.8)) / 1.6 + dsdz;
     const dhdx = -(terrH(gxP + 0.8, gzP) - terrH(gxP - 0.8, gzP)) / 1.6;
@@ -1732,9 +1885,17 @@ export function create(root, canvas2d) {
       m.t += dt;
       const k = clamp(m.t / m.T, 0, 1);
       lift = m.base * (1 - k);                            // к приземлению — плавно на уровень склона
-      const e = clamp((k - 0.08) / 0.8, 0, 1);            // отрыв и приземление — ровно, оборот — посередине
-      R.pivot.rotation.x = -(e * e * (3 - 2 * e)) * Math.PI * 2 * (/двойн/i.test(P.trick.name) ? 2 : 1);
-      pose.c = 0.55 + 0.45 * Math.sin(Math.PI * clamp(k * 1.15, 0, 1));
+      if (P.trick.manual) {
+        // игрок крутит сам: ← → — вращение, пробел — сальто, ↓ — грэб
+        R.pivot.rotation.x = -P.flip;
+        R.root.rotation.y = yaw - P.rot;
+        pose.grab = P.grabbing;
+        pose.c = P.grabbing ? 0.95 : 0.55 + 0.35 * Math.abs(Math.sin(P.flip));
+      } else {
+        const e = clamp((k - 0.08) / 0.8, 0, 1);            // отрыв и приземление — ровно, оборот — посередине
+        R.pivot.rotation.x = -(e * e * (3 - 2 * e)) * Math.PI * 2 * (/двойн/i.test(P.trick.name) ? 2 : 1);
+        pose.c = 0.55 + 0.45 * Math.sin(Math.PI * clamp(k * 1.15, 0, 1));
+      }
     }
     if (P.crash) {
       const k = clamp(P.crash / 0.9, 0, 1);
@@ -1743,11 +1904,22 @@ export function create(root, canvas2d) {
       R.pivot.rotation.x = e * Math.PI * 2.1;
       R.pivot.rotation.z = e * Math.PI * 0.5;
       R.pivot.position.y = lerp(0.95, 0.3, e) + Math.sin(k * Math.PI) * 0.8;
-      R.root.position.z = -e * 1.2;                            // отскок назад от препятствия
+      // отскок назад от препятствия; от ёлки — дальше, за пределы нижних лап, чтобы райдер не лежал под кроной
+      R.root.position.z = -e * (v.cine && v.cine.hit && v.cine.hit.type === 'tree' ? 3.6 : 1.2);
       pose.noGear = rider === 'ski';
       pose.c = 0.9;
     }
     R.root.position.y = ph + lift;
+    if (P.carried) {
+      // над головой у йети: лежит поперёк, болтается и дрыгает ногами
+      R.root.position.y = 2.45;
+      R.root.position.z = 0.1;
+      R.root.rotation.set(0, Math.PI / 2, 0);
+      R.pivot.rotation.set(-1.4 + Math.sin(t3 * 9) * 0.22, 0, Math.sin(t3 * 7) * 0.2, 'XYZ');
+      R.pivot.position.y = 0.95;
+      pose.noGear = rider === 'ski';
+      pose.c = 0.15 + Math.abs(Math.sin(t3 * 11)) * 0.45;
+    }
     R.setShield(P.shield);
     R.update(pose);
     R.root.visible = !(P.inv > 0 && Math.floor(P.inv * 12) % 2);
@@ -1889,7 +2061,24 @@ export function create(root, canvas2d) {
     /* --- камера --- */
     const speedK = clamp((P.speed - 240) / 460, 0, 1);
     const target = V(), look = V();
-    if (P.crash) {
+    if (v.cine) {
+      const c = v.cine;
+      if (c.kind === 'crash') {
+        // камера со стороны, противоположной препятствию (ёлка не закрывает), покачивается в секторе и опускается
+        let a0 = Math.PI + 0.9;
+        if (c.hit) a0 = Math.atan2(px - mx(c.hit.x), (P.y - c.hit.y) * S + 0.001);
+        const a = a0 + Math.sin(c.t * 0.7) * 0.55;
+        const r = lerp(7.5, 4.6, clamp(c.t / 1.4, 0, 1));
+        const rz = R.root.position.z;
+        target.set(px + Math.sin(a) * r, 2.2 + Math.max(0, 1.6 - c.t) * 1.1, Math.cos(a) * r + rz);
+        look.set(px, 0.55, rz);
+      } else {
+        // йети с добычей — снизу спереди; потом камера провожает его вверх по склону
+        const carry = c.stage === 'carry';
+        target.set(px + 3.4, carry ? 4.8 : 2.3, carry ? 10.5 : 6.4);
+        look.set(px, carry ? 2.4 : 3.0, carry ? -2 : 0);
+      }
+    } else if (P.crash) {
       // после падения камера облетает райдера — препятствие не закрывает его
       const a = Math.PI + Math.min(P.crash, 6) * 0.35 * (px > 0 ? -1 : 1);
       target.set(px + Math.sin(a) * 6.5, 3.4, Math.cos(a) * 6.5 - 1.2);
@@ -1909,7 +2098,8 @@ export function create(root, canvas2d) {
     const tCam = hAt(target.x, target.z);
     target.y = Math.max(target.y + tCam * 0.85 + lift * 0.8, tCam + 1.6);
     look.y += hAt(look.x, look.z) * 0.8 + lift * 0.9;
-    const k = camInit ? 1 - Math.exp(-dt * (v.state === 'start' ? 2.5 : 4.5)) : 1;
+    const cdt = v.cine ? v.realDt : dt;                       // в замедлении камера движется в реальном времени
+    const k = camInit ? 1 - Math.exp(-cdt * (v.state === 'start' ? 2.5 : v.cine ? 3 : 4.5)) : 1;
     camInit = true;
     camPos.lerp(target, k); camLook.lerp(look, k);
     camera.position.copy(world.localToWorld(tmpV.copy(camPos)));
