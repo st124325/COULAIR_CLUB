@@ -552,8 +552,7 @@ const pitchH = gz => { const t = gz / PITCH_LEN, f = t - Math.floor(t); return -
 const rollsH = (gx, gz) =>
   2.6 * Math.sin(gz * 0.042 + 0.7) * (0.65 + 0.35 * Math.sin(gx * 0.021 + 1.1)) +
   1.25 * Math.sin(gz * 0.105 + gx * 0.047 + 1.3) +
-  0.8 * Math.sin(gx * 0.071 - gz * 0.033 + 2.1) +
-  0.3 * Math.sin(gx * 0.19 + gz * 0.13 + 0.4);
+  0.8 * Math.sin(gx * 0.071 - gz * 0.033 + 2.1);
 const TERRAIN = { roadZ: -1e9, roadHalf: 0 };            // ближайшая трасса: полотно горизонтально, склон к нему выполаживается
 function terrH(gx, gz) {
   const dz = gz - TERRAIN.roadZ;
@@ -569,8 +568,7 @@ const TERRAIN_GLSL = `
   float rollsH(float gx, float gz) {
     return 2.6 * sin(gz * 0.042 + 0.7) * (0.65 + 0.35 * sin(gx * 0.021 + 1.1))
          + 1.25 * sin(gz * 0.105 + gx * 0.047 + 1.3)
-         + 0.8 * sin(gx * 0.071 - gz * 0.033 + 2.1)
-         + 0.3 * sin(gx * 0.19 + gz * 0.13 + 0.4);
+         + 0.8 * sin(gx * 0.071 - gz * 0.033 + 2.1);
   }
   float terrH(float gx, float gz) {
     float dz = gz - uRoad.x;
@@ -1504,7 +1502,7 @@ export function create(root, canvas2d) {
   const trackGeo = new THREE.BufferGeometry();
   trackGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAXT * 2 * 6 * 3), 3).setUsage(THREE.DynamicDrawUsage));
   trackGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MAXT * 2 * 6 * 4), 4).setUsage(THREE.DynamicDrawUsage));
-  const tracks3 = new THREE.Mesh(trackGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
+  const tracks3 = new THREE.Mesh(trackGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 }));
   tracks3.frustumCulled = false; tracks3.renderOrder = 1;
   world.add(tracks3);
 
@@ -1772,11 +1770,13 @@ export function create(root, canvas2d) {
         for (let i = 1; i < len && n < MAXT * 12 - 6; i++) {
           const a = tr[i - 1], b = tr[i];
           if (!a || !b) continue;
-          const ax = mx(a.x) - off * Math.cos(a.a * 0.6), az = mz(a.y), bx = mx(b.x) - off * Math.cos(b.a * 0.6), bz = mz(b.y);
+          // лыжи разнесены поперёк курса — тот же курс, что у модели райдера
+          const ha = Math.atan2(a.a * 0.8, 1 - 0.38 * Math.abs(a.a)), hb = Math.atan2(b.a * 0.8, 1 - 0.38 * Math.abs(b.a));
+          const ax = mx(a.x) + off * Math.cos(ha), az = mz(a.y) + off * Math.sin(ha), bx = mx(b.x) + off * Math.cos(hb), bz = mz(b.y) + off * Math.sin(hb);
           let dx = bx - ax, dz = bz - az; const l = Math.hypot(dx, dz) || 1;
           const nx = (-dz / l) * w / 2, nz = (dx / l) * w / 2;
           const fa = (i / len) * 0.85, fb = ((i + 1) / len) * 0.85;
-          const ya = gy(a.x, a.y) + surfAt(a.x, a.y) + 0.03, yb = gy(b.x, b.y) + surfAt(b.x, b.y) + 0.03;
+          const ya = gy(a.x, a.y) + surfAt(a.x, a.y) + 0.06, yb = gy(b.x, b.y) + surfAt(b.x, b.y) + 0.06;
           put(ax + nx, az + nz, fa, ya); put(bx + nx, bz + nz, fb, yb); put(bx - nx, bz - nz, fb, yb);
           put(ax + nx, az + nz, fa, ya); put(bx - nx, bz - nz, fb, yb); put(ax - nx, az - nz, fa, ya);
         }

@@ -319,6 +319,16 @@
   }
 
   // машины на трассе: едут в обе стороны по своим полосам
+  const CAR_GAP = 28;                                     // минимальный зазор между машинами в полосе
+  const carGap = (a, b) => (VEHICLES[a.kind].len + VEHICLES[b.kind].len) / 2 + CAR_GAP;
+  // свободно ли место в полосе dir для машины kind в точке x
+  const laneFree = (o, dir, kind, x) => o.cars.every(c => c.dir !== dir || Math.abs(c.x - x) > carGap(c, { kind }) + 40);
+
+  function addCar(o, kind, dir, x, color) {
+    const V = VEHICLES[kind], sp = rand(V.speed[0], V.speed[1]);
+    o.cars.push({ kind, dir, x, lane: dir * 36, speed: sp, cruise: sp, color, wheel: 0 });
+  }
+
   function updateRoad(o, dt) {
     if (Math.abs(o.y - P.y) > 5000) return;
     o.spawnT -= dt;
@@ -326,10 +336,24 @@
       o.spawnT = rand(0.8, 2.0);
       const dir = Math.random() < 0.5 ? 1 : -1;
       const kind = pick(['car', 'car', 'car', 'suv', 'suv', 'truck', 'truck', 'bus']);
-      const V = VEHICLES[kind];
-      o.cars.push({ kind, dir, x: cam.x - dir * 1900, lane: dir * 36, speed: rand(V.speed[0], V.speed[1]), color: pick(['#c8102e', '#1d4ed8', '#f4f4f4', '#18181b', '#9ca3af', '#0f766e', '#f59e0b']), wheel: 0 });
+      const x = cam.x - dir * 1900;
+      if (laneFree(o, dir, kind, x)) addCar(o, kind, dir, x, pick(['#c8102e', '#1d4ed8', '#f4f4f4', '#18181b', '#9ca3af', '#0f766e', '#f59e0b']));
     }
-    for (const c of o.cars) { c.x += c.dir * c.speed * dt; c.wheel += c.speed * dt; }
+    // в каждой полосе догнавший сбавляет ход до скорости впереди идущего и не въезжает в него
+    for (const dir of [1, -1]) {
+      const lane = o.cars.filter(c => c.dir === dir).sort((a, b) => (b.x - a.x) * dir);   // первый — самый передний
+      for (let i = 0; i < lane.length; i++) {
+        const c = lane[i], lead = lane[i - 1];
+        let target = c.cruise;
+        if (lead) {
+          const gap = (lead.x - c.x) * dir - carGap(lead, c);
+          if (gap < 120) target = Math.min(c.cruise, lead.speed * (gap < 30 ? 0.9 : 1));
+        }
+        c.speed += (target - c.speed) * Math.min(1, 3 * dt);
+        c.x += dir * c.speed * dt; c.wheel += c.speed * dt;
+        if (lead && (lead.x - c.x) * dir < carGap(lead, c)) c.x = lead.x - dir * carGap(lead, c);
+      }
+    }
     o.cars = o.cars.filter(c => Math.abs(c.x - cam.x) < 2100);
   }
 
@@ -414,6 +438,18 @@
     gameOver(o.type === 'tree' ? 'Врезался в ёлку!' : o.type === 'pole' ? 'Снёс флаг!' : 'Зацепил камень!');
   }
 
+  // радиус удара — по видимому размеру (ствол и густые нижние лапы, камень, пень, древко)
+  const RIDER_R = 6;
+  function hitRadius(o) {
+    switch (o.type) {
+      case 'tree': return 10;
+      case 'rock': return o.w * 0.5;
+      case 'stump': return 7;
+      case 'pole': return 2.5;
+      default: return o.r;
+    }
+  }
+
   function crashRoad(reason) {
     P.crash = 0.001; shake = 18;
     puff(P.x, P.y, 40, 1.8);
@@ -435,8 +471,12 @@
     const road = big && objects.find(r => r.type === 'road' && r.y > P.y);
     if (road) {
       const vy = P.speed * (1 - 0.38 * Math.abs(P.angle)), t = (road.y - P.y) / vy;
-      const dir = Math.random() < 0.5 ? 1 : -1, V = VEHICLES.truck, sp = rand(V.speed[0], V.speed[1]);
-      road.cars.push({ kind: 'truck', dir, x: P.x - dir * sp * t, lane: dir * 36, speed: sp, color: pick(['#c8102e', '#1d4ed8', '#18181b', '#0f766e']), wheel: 0 });
+      const V = VEHICLES.truck, sp = (V.speed[0] + V.speed[1]) / 2;
+      // только в свободную полосу, чтобы фура не появилась внутри другой машины
+      for (const dir of Math.random() < 0.5 ? [1, -1] : [-1, 1]) {
+        const x = P.x - dir * sp * t;
+        if (laneFree(road, dir, 'truck', x)) { addCar(road, 'truck', dir, x, pick(['#c8102e', '#1d4ed8', '#18181b', '#0f766e'])); break; }
+      }
     }
   }
 
@@ -531,7 +571,8 @@
           }
           continue;
         }
-        const dist2 = dx * dx + dy * dy, rr = (o.r + 10) * (o.r + 10);
+        const reach = hitRadius(o) + (o.type === 'flake' || o.type === 'helmet' ? 10 : RIDER_R);
+        const dist2 = dx * dx + dy * dy, rr = reach * reach;
         if (dist2 > rr) continue;
         switch (o.type) {
           case 'flake':
