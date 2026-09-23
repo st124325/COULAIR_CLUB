@@ -49,6 +49,25 @@ arm = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
 body = max((o for o in bpy.data.objects if o.type == 'MESH'), key=lambda o: len(o.data.vertices))
 log('body', body.name, len(body.data.vertices))
 
+# --- объём груди у женской модели: плавное «раздувание» от центра, одежда потом повторит форму ---
+if VARIANT == 'board':
+    BUST = dict(x=0.085, y=-0.045, z=1.305, r=0.125, grow=0.42, lift=-0.008)
+    me = body.data
+    for v in me.vertices:
+        co = body.matrix_world @ v.co
+        if co.y > 0.02:
+            continue
+        for sx in (-1, 1):
+            c = Vector((sx * BUST['x'], BUST['y'], BUST['z']))
+            d2 = ((co.x - c.x) ** 2 + (co.z - c.z) ** 2 * 1.2) / BUST['r'] ** 2
+            if d2 >= 1:
+                continue
+            f = (1 - d2) ** 2
+            off = (co - c) * BUST['grow'] * f
+            off.z = off.z * 0.5 + BUST['lift'] * f
+            v.co = body.matrix_world.inverted() @ (co + off)
+    me.update()
+
 # --- доминирующая кость каждой вершины ---
 gname = {g.index: g.name for g in body.vertex_groups}
 dom, zpos = [], []
@@ -109,6 +128,25 @@ def make_mat(name, rough=0.8, metal=0.0, vcol=True, color=(1, 1, 1), emissive=No
     return m
 
 
+def hem_loops(bm):
+    """Связные группы граничных вершин (каждая — один край одежды)."""
+    left = {v for v in bm.verts if v.is_boundary}
+    loops = []
+    while left:
+        start = left.pop(); grp = [start]; stack = [start]
+        while stack:
+            v = stack.pop()
+            for e in v.link_edges:
+                if not e.is_boundary:
+                    continue
+                o = e.other_vert(v)
+                if o in left:
+                    left.remove(o); grp.append(o); stack.append(o)
+        if len(grp) > 6:
+            loops.append(grp)
+    return loops
+
+
 def piece(name, regs, puff, colorfn, rough, smooth=5):
     """Копия тела только с нужной зоной, «надутая» по нормалям; веса костей сохраняются."""
     o = body.copy(); o.data = body.data.copy(); o.name = name; o.data.name = name
@@ -126,6 +164,16 @@ def piece(name, regs, puff, colorfn, rough, smooth=5):
     inner = [v for v in bm.verts if not v.is_boundary]
     for _ in range(smooth):
         bmesh.ops.smooth_vert(bm, verts=inner, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+    # край одежды: сглаживаем только вдоль самой границы — зубцы превращаются в плавный подгиб
+    edge = [v for v in bm.verts if v.is_boundary]
+    for _ in range(8):
+        new = {}
+        for v in edge:
+            nb = [e.other_vert(v) for e in v.link_edges if e.is_boundary]
+            if len(nb) == 2:
+                new[v] = v.co * 0.4 + (nb[0].co + nb[1].co) * 0.3
+        for v, c in new.items():
+            v.co = c
     bm.to_mesh(o.data); bm.free()
     o.data.materials.clear()
     o.data.materials.append(make_mat('M_' + name, rough=rough))
@@ -144,12 +192,10 @@ def jacket_col(co, n):
     x, y, z = co.x, co.y, co.z
     if abs(x) < 0.012 and y < 0 and z < 1.5:                      # молния
         return S['dark']
-    if 1.435 < z and abs(x) < 0.2 and y > -0.02:                   # кокетка на плечах
-        return S['stripe']
     if abs(x) > 0.64:                                              # манжеты
-        return S['dark']
-    if z < 1.03:                                                   # низ куртки
-        return S['dark']
+        return S['stripe']
+    if z < 1.035:                                                  # низ куртки
+        return S['stripe']
     return S['jacket']
 
 
@@ -173,7 +219,7 @@ def boots_col(co, n):
     return S['boots']
 
 
-jacket = piece('Jacket', {'jacket'}, S['jacket_puff'] + 0.012, jacket_col, 0.55, smooth=14)
+jacket = piece('Jacket', {'jacket'}, S['jacket_puff'] + 0.014, jacket_col, 0.55, smooth=16)
 pants = piece('Pants', {'pants'}, S['pants_puff'] + 0.014, pants_col, 0.75, smooth=12)
 boots = piece('Boots', {'boots'}, S['boots_puff'], boots_col, 0.35 if VARIANT == 'ski' else 0.6)
 gloves = piece('Gloves', {'gloves'}, 0.012, lambda co, n: S['gloves'], 0.6)
