@@ -1159,26 +1159,18 @@ export function create(root, canvas2d) {
     };
 
     if (P.air && P.trick) {
-      // трюк: число оборотов по названию, вращение завершается ровно к приземлению
+      // с трамплина — сальто назад: оборот завершается ровно к приземлению, в середине райдер группируется
       let m = trickMeta.get(P.trick);
       if (!m) {
         const g = 900, rem = (P.vz + Math.sqrt(P.vz * P.vz + 2 * g * P.z)) / g;
-        const name = P.trick.name.toLowerCase();
-        const deg = +(name.match(/\d{3}/) || [0])[0];
-        const kind = /флип/.test(name) ? 'flip' : /мисти/.test(name) ? 'misty' : /флэт/.test(name) ? 'flat'
-          : deg || /спиннер/.test(name) ? 'spin' : 'grab';
-        m = { T: Math.max(0.3, rem), t: 0, kind, turns: Math.max(1, Math.round((deg || 360) / 360)), dir: Math.sign(P.trick.spinRate) || 1 };
+        m = { T: Math.max(0.3, rem), t: 0 };
         trickMeta.set(P.trick, m);
       }
       m.t += dt;
       const k = clamp(m.t / m.T, 0, 1);
-      const e = k * k * (3 - 2 * k);
-      const a = e * Math.PI * 2 * m.turns * m.dir;
-      if (m.kind === 'flip') R.pivot.rotation.x = -Math.abs(a);
-      else if (m.kind === 'misty') { R.pivot.rotation.order = 'YXZ'; R.pivot.rotation.y = a; R.pivot.rotation.x = -Math.sin(e * Math.PI) * 1.2; }
-      else if (m.kind === 'flat') { R.pivot.rotation.order = 'ZYX'; R.pivot.rotation.z = Math.sin(e * Math.PI) * 0.9; R.pivot.rotation.y = a; }
-      else if (m.kind === 'spin') R.pivot.rotation.y = a;
-      else { R.pivot.rotation.x = -Math.sin(e * Math.PI) * 0.35; R.pivot.rotation.z = Math.sin(e * Math.PI) * 0.25 * m.dir; }
+      const e = clamp((k - 0.08) / 0.8, 0, 1);            // отрыв и приземление — ровно, оборот — посередине
+      R.pivot.rotation.x = -(e * e * (3 - 2 * e)) * Math.PI * 2;
+      pose.c = 0.55 + 0.45 * Math.sin(Math.PI * clamp(k * 1.15, 0, 1));
     }
     if (P.crash) {
       const k = clamp(P.crash / 0.9, 0, 1);

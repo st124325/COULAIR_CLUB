@@ -292,8 +292,14 @@
       for (const [t, w] of TYPES) { if ((roll -= w) < 0) { type = t; break; } }
       if (type === 'helmet' && P.shield) type = 'flake';
     }
-    const x = cam.x + rand(-spanX(), spanX());
-    const y = spawnY + rand(-20, 20);
+    const gap = type === 'gate' ? rand(80, 120) : 0;
+    // ищем свободное место: объекты не должны налезать на трамплин, ворота и друг на друга
+    let x, y, tries = 0;
+    do {
+      x = cam.x + rand(-spanX(), spanX());
+      y = spawnY + rand(-20, 20);
+    } while (!isFree(x, y, type, gap) && ++tries < 8);
+    if (tries >= 8) return;
     switch (type) {
       case 'tree':   objects.push({ type, x, y, r: 11, h: rand(58, 96), sway: Math.random() * 6 }); break;
       case 'rock':   objects.push({ type, x, y, r: 13, w: rand(22, 34) }); break;
@@ -302,13 +308,30 @@
       case 'helmet': objects.push({ type, x, y, r: 20, bob: 0 }); break;
       case 'ramp':   objects.push({ type, x, y, r: 26, w: 60 }); break;
       case 'gate': {
-        const gap = rand(80, 120);
         objects.push({ type: 'pole', x: x - gap / 2, y, r: 5, color: '#d9352b' });
         objects.push({ type: 'pole', x: x + gap / 2, y, r: 5, color: '#2466d9' });
         objects.push({ type: 'gate', x, y, gap, done: false });
         break;
       }
     }
+  }
+
+  // занимаемая площадь объекта (полуширина по x и y) с запасом для объезда
+  function footprint(type, gap, r) {
+    if (type === 'ramp') return [44, 50];                   // кикер длинный: разгон, стол и приземление
+    if (type === 'gate') return [gap / 2 + 14, 16];
+    return [r + 6, r + 6];
+  }
+  const RADIUS = { tree: 11, rock: 17, stump: 9, flake: 18, helmet: 20 };
+
+  function isFree(x, y, type, gap) {
+    const [ax, ay] = footprint(type, gap, RADIUS[type] || 12);
+    for (const o of objects) {
+      if (o.dead || o.type === 'pole' || Math.abs(o.y - y) > 160) continue;
+      const [bx, by] = footprint(o.type, o.gap, o.r);
+      if (Math.abs(o.x - x) < ax + bx && Math.abs(o.y - y) < ay + by) return false;
+    }
+    return true;
   }
 
   function addText(text, x, y, color = '#16161a') {
@@ -419,7 +442,7 @@
             break;
           case 'ramp':
             if (!P.air) {
-              const t = pick(RIDERS[rider].tricks);
+              const t = is3D() ? 'Бэкфлип' : pick(RIDERS[rider].tricks);   // в 3D с трамплина — всегда сальто назад
               P.vz = 520 + P.speed * 0.25; P.air = true;
               P.trick = { name: t, points: 150 + Math.round(P.speed / 5) * 5, spinRate: rand(9, 14) * (Math.random() < 0.5 ? -1 : 1) };
             }
