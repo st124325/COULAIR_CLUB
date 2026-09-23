@@ -1706,6 +1706,7 @@ export function create(root, canvas2d) {
     R.root.rotation.set(0, 0, 0);
     R.pivot.rotation.set(0, 0, 0, 'XYZ');
     R.pivot.position.set(0, 0.95, 0);
+    R.root.position.set(px, 0, 0);                              // райдер стоит там, где он на самом деле (а не там, где камера)
     const yaw = rider === 'ski' ? -heading : -heading * 0.9;
     R.root.rotation.order = 'YXZ';
     R.root.rotation.y = yaw;
@@ -1766,20 +1767,34 @@ export function create(root, canvas2d) {
         cl[n * 4] = 0.5; cl[n * 4 + 1] = 0.6; cl[n * 4 + 2] = 0.78; cl[n * 4 + 3] = a;
         n++;
       };
+      // непрерывная лента: у каждой точки своя нормаль (среднее соседних отрезков) — без изломов на стыках
       for (const off of lines) {
-        for (let i = 1; i < len && n < MAXT * 12 - 6; i++) {
-          const a = tr[i - 1], b = tr[i];
-          if (!a || !b) continue;
-          // лыжи разнесены поперёк курса — тот же курс, что у модели райдера
-          const ha = Math.atan2(a.a * 0.8, 1 - 0.38 * Math.abs(a.a)), hb = Math.atan2(b.a * 0.8, 1 - 0.38 * Math.abs(b.a));
-          const ax = mx(a.x) + off * Math.cos(ha), az = mz(a.y) + off * Math.sin(ha), bx = mx(b.x) + off * Math.cos(hb), bz = mz(b.y) + off * Math.sin(hb);
-          let dx = bx - ax, dz = bz - az; const l = Math.hypot(dx, dz) || 1;
-          const nx = (-dz / l) * w / 2, nz = (dx / l) * w / 2;
-          const fa = (i / len) * 0.85, fb = ((i + 1) / len) * 0.85;
-          const ya = gy(a.x, a.y) + surfAt(a.x, a.y) + 0.06, yb = gy(b.x, b.y) + surfAt(b.x, b.y) + 0.06;
-          put(ax + nx, az + nz, fa, ya); put(bx + nx, bz + nz, fb, yb); put(bx - nx, bz - nz, fb, yb);
-          put(ax + nx, az + nz, fa, ya); put(bx - nx, bz - nz, fb, yb); put(ax - nx, az - nz, fa, ya);
+        let run = [];
+        const flush = () => {
+          const m = run.length;
+          for (let i = 0; i < m && m > 1; i++) {
+            const pa = run[Math.max(0, i - 1)], pb = run[Math.min(m - 1, i + 1)];
+            const dx = pb.x - pa.x, dz = pb.z - pa.z, l = Math.hypot(dx, dz) || 1;
+            run[i].nx = (-dz / l) * w / 2; run[i].nz = (dx / l) * w / 2;
+          }
+          for (let i = 1; i < m && n < MAXT * 12 - 6; i++) {
+            const a = run[i - 1], b = run[i];
+            put(a.x + a.nx, a.z + a.nz, a.f, a.y); put(b.x + b.nx, b.z + b.nz, b.f, b.y); put(b.x - b.nx, b.z - b.nz, b.f, b.y);
+            put(a.x + a.nx, a.z + a.nz, a.f, a.y); put(b.x - b.nx, b.z - b.nz, b.f, b.y); put(a.x - a.nx, a.z - a.nz, a.f, a.y);
+          }
+          run = [];
+        };
+        for (let i = 0; i < len; i++) {
+          const t = tr[i];
+          if (!t) { flush(); continue; }
+          // лыжа разнесена поперёк курса — тот же курс, что у модели райдера
+          const h = Math.atan2(t.a * 0.8, 1 - 0.38 * Math.abs(t.a));
+          run.push({
+            x: mx(t.x) + off * Math.cos(h), z: mz(t.y) + off * Math.sin(h),
+            y: gy(t.x, t.y) + surfAt(t.x, t.y) + 0.06, f: ((i + 1) / len) * 0.85,
+          });
         }
+        flush();
       }
       trackGeo.setDrawRange(0, n);
       trackGeo.attributes.position.needsUpdate = true;

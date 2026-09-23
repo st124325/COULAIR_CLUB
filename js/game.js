@@ -949,22 +949,50 @@
     ctx.restore();
   }
 
-  // следы: вдавленная борозда + светлый край
+  // следы: вдавленная борозда + светлый край.
+  // Точка следа — ровно под лыжей: то же смещение и поворот, что у спрайта (лыжи на ±5.5, масштаб 1.12, курс angle·0.8)
+  const SKI_OFF = 5.5 * 1.12;
+  function trackRuns() {
+    const runs = [];
+    let cur = [];
+    for (const t of tracks) {
+      if (!t) { if (cur.length > 1) runs.push(cur); cur = []; continue; }
+      cur.push(t);
+    }
+    if (cur.length > 1) runs.push(cur);
+    return runs;
+  }
+  // плавная линия через середины отрезков + сдвиг по нормали (для светлого края борозды)
+  function strokeSmooth(pts, shift) {
+    const n = pts.length;
+    const q = pts.map((p, i) => {
+      if (!shift) return p;
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+      const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+      return [p[0] - (dy / l) * shift, p[1] + (dx / l) * shift];
+    });
+    ctx.beginPath();
+    ctx.moveTo(q[0][0], q[0][1]);
+    for (let i = 1; i < n - 1; i++) {
+      ctx.quadraticCurveTo(q[i][0], q[i][1], (q[i][0] + q[i + 1][0]) / 2, (q[i][1] + q[i + 1][1]) / 2);
+    }
+    ctx.lineTo(q[n - 1][0], q[n - 1][1]);
+    ctx.stroke();
+  }
   function drawTracks() {
-    const lines = rider === 'ski' ? [-5.5, 5.5] : [0];
+    const ski = rider === 'ski';
+    const sides = ski ? [-1, 1] : [0];
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    for (const pass of [0, 1]) {
-      ctx.strokeStyle = pass ? 'rgba(255,255,255,.8)' : 'rgba(120,145,190,.34)';
-      ctx.lineWidth = rider === 'ski' ? (pass ? 0.9 : 2.4) : (pass ? 1.6 : 8);
-      for (const off of lines) {
-        ctx.beginPath();
-        let pen = false;
-        for (const t of tracks) {
-          if (!t) { pen = false; continue; }
-          const [sx, sy] = toScreen(t.x + off * Math.cos(t.a * 0.6) + (pass ? 1 : 0), t.y);
-          if (!pen) { ctx.moveTo(sx, sy); pen = true; } else ctx.lineTo(sx, sy);
-        }
-        ctx.stroke();
+    for (const run of trackRuns()) {
+      for (const side of sides) {
+        const pts = run.map(t => {
+          const th = t.a * 0.8;
+          return toScreen(t.x + side * SKI_OFF * Math.cos(th), t.y - side * SKI_OFF * Math.sin(th));
+        });
+        ctx.strokeStyle = 'rgba(120,145,190,.34)'; ctx.lineWidth = ski ? 2.4 : 8;
+        strokeSmooth(pts, 0);
+        ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = ski ? 0.9 : 1.6;
+        strokeSmooth(pts, ski ? 0.9 : 2.6);
       }
     }
   }
