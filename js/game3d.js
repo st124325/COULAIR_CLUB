@@ -579,21 +579,27 @@ const TERRAIN_GLSL = `
     return mix(h, pitchH(uRoad.x) + dz * ${TAN_SLOPE.toFixed(5)}, m);
   }`;
 
-/* ---------------- естественный трамплин: снежная насыпь, кромка в начале координат ---------------- */
-function snowKickerGeometry(len, height, width, seed) {
+/* ---------------- естественный трамплин: снежная насыпь, кромка в начале координат ----------------
+   Ширина полной высоты совпадает с зоной, где в игре срабатывает прыжок (32 и 62 ед. от центра). */
+const KICKERS = { ramp: { len: 6, height: 1.45, width: 5.1 }, bigramp: { len: 15, height: 3.6, width: 9.9 } };
+// высота поверхности трамплина (м) в точке dx поперёк / dz вдоль склона от кромки
+function kickerProf(k, dx, dz) {
+  const zr = -k.len * 0.85, zk = k.len * 0.2;
+  let prof = 0;
+  if (dz > zr && dz <= 0) prof = Math.pow((dz - zr) / -zr, 1.9);
+  else if (dz > 0 && dz < zk) prof = 0.5 + 0.5 * Math.cos((dz / zk) * Math.PI);
+  return k.height * prof * (1 - smooth(0.85, 1.3, Math.abs(dx) / (k.width / 2)));
+}
+function snowKickerGeometry(k, seed) {
   const n = perlin(seed);
-  const zr = -len * 0.85, zk = len * 0.2;
-  const g = new THREE.PlaneGeometry(width * 1.7, len * 1.4, 40, 56).rotateX(-Math.PI / 2).translate(0, 0, (zr * 1.15 + zk * 1.6) / 2);
+  const zr = -k.len * 0.85, zk = k.len * 0.2;
+  const g = new THREE.PlaneGeometry(k.width * 1.6, k.len * 1.4, 40, 56).rotateX(-Math.PI / 2).translate(0, 0, (zr * 1.15 + zk * 1.6) / 2);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), z = p.getZ(i);
-    let prof = 0;
-    if (z > zr && z <= 0) prof = Math.pow((z - zr) / -zr, 1.9);
-    else if (z > 0 && z < zk) prof = 0.5 + 0.5 * Math.cos((z / zk) * Math.PI);
-    const ax = Math.abs(x) / (width / 2) + n(x * 0.25, z * 0.25, 0.5) * 0.18;
-    const lat = 1 - smooth(0.55, 1.2, ax);
-    const bump = n(x * 0.9, z * 0.9, 2.5) * 0.07 * (0.3 + prof);
-    p.setY(i, height * prof * lat + bump - 0.06);
+    const edge = n(x * 0.25, z * 0.25, 0.5) * 0.35;                     // неровный край насыпи
+    const h = kickerProf(k, Math.abs(x) + Math.max(0, Math.abs(x) - k.width * 0.4) * edge, z);
+    p.setY(i, h + n(x * 0.9, z * 0.9, 2.5) * 0.05 * (h > 0.05 ? 1 : 0.3) - 0.06);
   }
   g.computeVertexNormals();
   return g;
@@ -1311,8 +1317,8 @@ export function create(root, canvas2d) {
   const kickerGroove = grooves.clone(); kickerGroove.repeat.set(1 / GROOVE_TILE, 1 / GROOVE_TILE); kickerGroove.offset.set(0, 0);
   kickerSnow.repeat.set(2, 2); kickerGroove.repeat.set(3, 3);
   const groundLikeMat = new THREE.MeshStandardMaterial({ map: kickerSnow, normalMap: kickerGroove, normalScale: new THREE.Vector2(0.35, 0.35), roughness: 0.74 });
-  const kickerGeo = snowKickerGeometry(6, 1.45, 5.2, 11);
-  const bigKickerGeo = snowKickerGeometry(15, 3.6, 11, 23);
+  const kickerGeo = snowKickerGeometry(KICKERS.ramp, 11);
+  const bigKickerGeo = snowKickerGeometry(KICKERS.bigramp, 23);
   const roadTex = roadTexture();
   roadTex.repeat.set(1000 / 40, 1);
   const roadMat = new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.62, metalness: 0.05 });
@@ -1587,6 +1593,8 @@ export function create(root, canvas2d) {
     TERRAIN.roadHalf = road ? (road.w * S) / 2 + 1.2 : 0;
     const hRef = terrH(P.x * S, P.y * S);
     const gy = (x, y) => terrH(x * S, y * S) - hRef;
+    const ramps = v.objects.filter(o => (o.type === 'ramp' || o.type === 'bigramp') && Math.abs(o.y - P.y) < 400);
+    const surfAt = (x, y) => { let h = 0; for (const o of ramps) h = Math.max(h, kickerProf(KICKERS[o.type], (x - o.x) * S, (y - o.y) * S)); return h; };
     const oxM = ox * S, oyM = oy * S;
     // сетка земли стоит на месте в мире (шаг CELL), иначе рельеф «плыл» бы
     const shX = oxM - CELL * Math.round(oxM / CELL), shZ = -(oyM - CELL * Math.floor(oyM / CELL));
@@ -1690,9 +1698,10 @@ export function create(root, canvas2d) {
     const rollT = grounded ? clamp(turnS * 0.14 + P.angle * 0.22, -0.7, 0.7) : 0;
     rollS = damp(rollS, rollT, 8, dt);
 
-    R.root.position.set(px, ph, 0);
     const gxP = P.x * S, gzP = P.y * S;
-    const dhdz = (terrH(gxP, gzP + 0.8) - terrH(gxP, gzP - 0.8)) / 1.6;
+    let lift = grounded ? surfAt(P.x, P.y) : 0;
+    const dsdz = grounded ? (surfAt(P.x, P.y + 8) - surfAt(P.x, P.y - 8)) / (16 * S) : 0;
+    const dhdz = (terrH(gxP, gzP + 0.8) - terrH(gxP, gzP - 0.8)) / 1.6 + dsdz;
     const dhdx = -(terrH(gxP + 0.8, gzP) - terrH(gxP - 0.8, gzP)) / 1.6;
     tiltX = damp(tiltX, grounded ? Math.atan(-dhdz) : tiltX * 0.9, 10, dt);
     tiltZ = damp(tiltZ, grounded ? Math.atan(dhdx) : 0, 10, dt);
@@ -1715,11 +1724,15 @@ export function create(root, canvas2d) {
       let m = trickMeta.get(P.trick);
       if (!m) {
         const g = 900, rem = (P.vz + Math.sqrt(P.vz * P.vz + 2 * g * P.z)) / g;
-        m = { T: Math.max(0.3, rem), t: 0 };
+        // высота кромки, с которой оторвался райдер
+        let base = 0;
+        for (const o of ramps) if (Math.abs(o.y - P.y) < 60) base = Math.max(base, kickerProf(KICKERS[o.type], (P.x - o.x) * S, 0));
+        m = { T: Math.max(0.3, rem), t: 0, base };
         trickMeta.set(P.trick, m);
       }
       m.t += dt;
       const k = clamp(m.t / m.T, 0, 1);
+      lift = m.base * (1 - k);                            // к приземлению — плавно на уровень склона
       const e = clamp((k - 0.08) / 0.8, 0, 1);            // отрыв и приземление — ровно, оборот — посередине
       R.pivot.rotation.x = -(e * e * (3 - 2 * e)) * Math.PI * 2 * (/двойн/i.test(P.trick.name) ? 2 : 1);
       pose.c = 0.55 + 0.45 * Math.sin(Math.PI * clamp(k * 1.15, 0, 1));
@@ -1735,10 +1748,11 @@ export function create(root, canvas2d) {
       pose.noGear = rider === 'ski';
       pose.c = 0.9;
     }
+    R.root.position.y = ph + lift;
     R.setShield(P.shield);
     R.update(pose);
     R.root.visible = !(P.inv > 0 && Math.floor(P.inv * 12) % 2);
-    riderAO.position.set(px, 0.014, R.root.position.z);
+    riderAO.position.set(px, 0.014 + (grounded ? lift : 0), R.root.position.z);
     riderAO.scale.setScalar(1.5 + ph * 0.6);
     riderAO.material.opacity = 0.55 / (1 + ph * 0.8);
 
@@ -1762,7 +1776,7 @@ export function create(root, canvas2d) {
           let dx = bx - ax, dz = bz - az; const l = Math.hypot(dx, dz) || 1;
           const nx = (-dz / l) * w / 2, nz = (dx / l) * w / 2;
           const fa = (i / len) * 0.85, fb = ((i + 1) / len) * 0.85;
-          const ya = gy(a.x, a.y) + 0.03, yb = gy(b.x, b.y) + 0.03;
+          const ya = gy(a.x, a.y) + surfAt(a.x, a.y) + 0.03, yb = gy(b.x, b.y) + surfAt(b.x, b.y) + 0.03;
           put(ax + nx, az + nz, fa, ya); put(bx + nx, bz + nz, fb, yb); put(bx - nx, bz - nz, fb, yb);
           put(ax + nx, az + nz, fa, ya); put(bx - nx, bz - nz, fb, yb); put(ax - nx, az - nz, fa, ya);
         }
@@ -1878,8 +1892,8 @@ export function create(root, canvas2d) {
     }
     const hAt = (X, Z) => terrH(-X + oxM, Z + oyM) - hRef;
     const tCam = hAt(target.x, target.z);
-    target.y = Math.max(target.y + tCam * 0.85, tCam + 1.6);
-    look.y += hAt(look.x, look.z) * 0.8;
+    target.y = Math.max(target.y + tCam * 0.85 + lift * 0.8, tCam + 1.6);
+    look.y += hAt(look.x, look.z) * 0.8 + lift * 0.9;
     const k = camInit ? 1 - Math.exp(-dt * (v.state === 'start' ? 2.5 : 4.5)) : 1;
     camInit = true;
     camPos.lerp(target, k); camLook.lerp(look, k);
