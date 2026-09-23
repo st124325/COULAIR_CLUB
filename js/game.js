@@ -42,7 +42,7 @@
 
   let root, canvas, ctx, W = 0, H = 0, dpr = 1;
   let state = 'start', rider = 'ski', raf = 0, last = 0;
-  let lastCrest = -1;
+  let lastCrest = -1, mirror2d = false;
   let cine = null;                       // идущая кат-сцена: { kind: 'crash' | 'yeti', t, dur, slow, zoom, … }
   let P, objects, tracks, particles, texts, debris = [], cam, spawnY, score, bonus, best, shake, keys, overTimer, nextRoadY;
   // графика: '2d' — canvas, '3d' — Three.js (js/game3d.js грузится только при первом включении)
@@ -115,7 +115,7 @@
           <button data-mode="2d" aria-pressed="true">2D</button><button data-mode="3d" aria-pressed="false">3D</button>
         </div>
         <button class="game__start" data-game-start>Поехали</button>
-        <p class="game__keys">← → — поворот · пробел — прыжок<br>В воздухе: ← → — вращение · держи пробел — сальто · ↓ — грэб<br>V — 2D/3D · Esc — выход</p>
+        <p class="game__keys">← → — поворот · пробел — прыжок<br>В воздухе: ← → — вращение · держи пробел — сальто · ↓ — грэб<br>Сноуборд: ↓ на земле — реверт, 180° в воздухе — едешь свитчем<br>V — 2D/3D · Esc — выход</p>
       </div>
 
       <div class="game__panel" data-screen="over" hidden>
@@ -290,7 +290,8 @@
   function reset() {
     P = { x: 0, y: 0, z: 0, vz: 0, angle: 0, speed: 240, shield: false, inv: 0, crash: 0, spin: 0, air: false, trick: null,
           crouch: 0.3, plant: null, plantCD: 0,
-          rot: 0, flip: 0, grabT: 0, grabbing: false, manual: false, staleL: false, staleR: false, boost: 1, steepT: 0, carried: false };
+          rot: 0, flip: 0, grabT: 0, grabbing: false, manual: false, staleL: false, staleR: false, boost: 1, steepT: 0, carried: false,
+          stance: 1, stanceVis: 0, revertLatch: false, takeoffStance: 1 };
     objects = []; tracks = []; particles = []; texts = []; debris = [];
     lastCrest = -1;
     cam = { x: 0 }; spawnY = 200; score = 0; bonus = 0; shake = 0; nextRoadY = ROAD.first;
@@ -425,13 +426,18 @@
     keys.flip = false;
     P.rot = 0; P.flip = 0; P.grabT = 0; P.grabbing = false; P.manual = false; P.spin = 0;
     P.fromRamp = fromRamp;
+    P.takeoffStance = P.stance;
   }
 
   const wrapPi = a => { a %= Math.PI * 2; if (a > Math.PI) a -= Math.PI * 2; if (a < -Math.PI) a += Math.PI * 2; return a; };
 
   // приземление после ручных трюков: докрутил — очки, нет — падение
   function landTricks() {
-    if (Math.abs(wrapPi(P.rot)) > TRICK.spinTol || Math.abs(wrapPi(P.flip)) > TRICK.flipTol) {
+    const board = rider === 'board';
+    const unit = board ? Math.PI : Math.PI * 2;                 // доску можно приземлить задом наперёд
+    const halves = Math.round(P.rot / unit);
+    const spinErr = Math.abs(P.rot - halves * unit);
+    if (spinErr > TRICK.spinTol || Math.abs(wrapPi(P.flip)) > TRICK.flipTol) {
       if (P.shield) {
         P.shield = false; P.inv = 1.6; shake = 8;
         addText('Жёстко! Шлем спас', P.x, P.y - 50, '#2d7a3e');
@@ -444,8 +450,13 @@
     let pts = 0;
     const flips = Math.round(Math.abs(P.flip) / (Math.PI * 2));
     if (flips) { parts.push((['', '', 'Дабл ', 'Трипл ', 'Квад '][flips] || `${flips}× `) + 'бэкфлип'); pts += [0, 300, 800, 1500, 2500][flips] || 3000; }
-    const turns = Math.round(Math.abs(P.rot) / (Math.PI * 2));
-    if (turns) { parts.push(String(turns * 360)); pts += 100 * turns * (turns + 1); }
+    const deg = Math.abs(halves) * (board ? 180 : 360);
+    if (deg) { const k = deg / 180; parts.push(String(deg)); pts += 25 * k * (k + 2); }
+    if (board && halves % 2) {                                   // нечётные полуобороты — смена стойки
+      P.stance *= -1;
+      P.stanceVis += halves * Math.PI;                           // картинка не дёргается: разворот уже сделан в воздухе
+      addText(P.stance < 0 ? 'Едешь свитчем' : 'Обычная стойка', P.x, P.y - 32, '#2466d9');
+    }
     if (P.grabT > 0.2) {
       const list = GRABS[rider];
       parts.push(list[(Math.abs(Math.round(P.rot)) + flips) % list.length]);
@@ -453,6 +464,7 @@
     }
     if (!parts.length) return;
     if (P.fromRamp) pts += P.fromRamp === 'big' ? 300 : 100;
+    if (board && P.takeoffStance < 0) parts.unshift('свитч');     // трюк из свитча — сложнее
     const mult = 1 + 0.5 * (parts.length - 1);
     const total = Math.round((pts * mult) / 10) * 10;
     bonus += total;
@@ -741,6 +753,19 @@
         }
         P.grabbing = keys.grab;
         if (keys.grab) P.grabT += dt;
+      }
+      // сноуборд: ↓ на земле — реверт, разворот доски на 180° (едешь другим боком)
+      if (rider === 'board' && !P.air) {
+        if (keys.grab && !P.revertLatch) {
+          P.revertLatch = true; P.stance *= -1;
+          puff(P.x, P.y + 4, 8, 0.6);
+          addText(P.stance < 0 ? 'Реверт · свитч' : 'Реверт', P.x, P.y - 30, '#2466d9');
+        }
+        if (!keys.grab) P.revertLatch = false;
+      }
+      {
+        const target = P.stance > 0 ? 0 : Math.PI;
+        P.stanceVis += wrapPi(target - P.stanceVis) * Math.min(1, 14 * dt);
       }
       const carve = Math.abs(P.angle - prevAngle) / dt;
 
@@ -1919,7 +1944,8 @@
     ctx.beginPath(); ctx.moveTo(-18, -6); ctx.lineTo(-10, -6); ctx.lineTo(-16, 6); ctx.lineTo(-24, 6); ctx.closePath(); ctx.fill();
     ctx.beginPath(); ctx.moveTo(14, -6); ctx.lineTo(18, -6); ctx.lineTo(12, 6); ctx.lineTo(8, 6); ctx.closePath(); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.font = '800 3.6px Manrope, sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('COULAIR', 2, 1.3);
+    if (mirror2d) { ctx.save(); ctx.scale(-1, 1); ctx.fillText('COULAIR', -2, 1.3); ctx.restore(); }
+    else ctx.fillText('COULAIR', 2, 1.3);
     ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = 0.6;
     ctx.beginPath(); ctx.roundRect(-28, -6, 56, 12, 6); ctx.stroke();
     // крепления: хайбэк, база, стрепы
@@ -1981,7 +2007,13 @@
       ctx.scale(1, Math.sign(c || 1) * Math.max(0.12, Math.abs(c)));
     } else if (P.spin) ctx.rotate(P.spin);
     ctx.scale(1.12, 1.12);
+    if (rider === 'board') {
+      const c = Math.cos(P.stanceVis);                             // реверт — «переворот» картинки
+      mirror2d = c < 0;
+      ctx.scale(Math.sign(c || 1) * Math.max(0.15, Math.abs(c)), 1);
+    }
     if (rider === 'ski') drawSkier(pose); else drawBoarder(pose);
+    mirror2d = false;
     ctx.restore();
   }
 
@@ -2003,7 +2035,7 @@
     clock += dt;
     if (cine) updateCine(dt);
     if (state !== 'start') update(cine ? dt * cine.slow : dt);
-    else { P.y += 60 * dt; cam.x = P.x; P.angle = Math.sin(t / 900) * 0.5; P.x += P.angle * 40 * dt; while (spawnY < P.y + ahead()) spawnRow(); objects = objects.filter(o => o.y > P.y - H * 0.6); }
+    else { if (!is3D()) P.y += 60 * dt; cam.x = P.x; P.angle = Math.sin(t / 900) * 0.5; P.x += P.angle * 40 * dt; while (spawnY < P.y + ahead()) spawnRow(); objects = objects.filter(o => o.y > P.y - H * 0.6); }
     if (is3D()) {
       try {
         R3D.render({ dt: cine ? dt * Math.max(cine.slow, 0.05) : dt, realDt: dt, clock, state, rider, RIDERS, P, cam, objects, tracks, particles, texts, debris, shake, cine });

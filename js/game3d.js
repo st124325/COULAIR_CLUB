@@ -1054,6 +1054,7 @@ class Rider {
         this._hand[i] = hand.clone();
       }
       this.board.position.set(0, 0.03, 0);
+      this.board.visible = !pose.noGear;
     }
     // голова смотрит вниз по склону, чуть вперёд
     const headFwd = this.kind === 'ski' ? V(Math.sin(pose.look * 0.4), -0.25, 1) : V(0.35, -0.2, 1);
@@ -1978,12 +1979,15 @@ export function create(root, canvas2d) {
     }
 
     /* --- райдер --- */
-    if (!riders[rider]) {
-      riders[rider] = new Rider(rider, v.RIDERS[rider], M);
-      world.add(riders[rider].root);
+    // в меню танцует сноубордистка
+    const menu = v.state === 'start';
+    const shown = menu ? 'board' : rider;
+    if (!riders[shown]) {
+      riders[shown] = new Rider(shown, v.RIDERS[shown], M);
+      world.add(riders[shown].root);
     }
-    for (const k in riders) riders[k].root.visible = k === rider;
-    const R = riders[rider];
+    for (const k in riders) riders[k].root.visible = k === shown;
+    const R = riders[shown];
     const px = mx(P.x), ph = P.z * HZ;
 
     // курс по реальной скорости, крен — по скорости поворота
@@ -2006,7 +2010,7 @@ export function create(root, canvas2d) {
     R.pivot.rotation.set(0, 0, 0, 'XYZ');
     R.pivot.position.set(0, 0.95, 0);
     R.root.position.set(px, 0, 0);                              // райдер стоит там, где он на самом деле (а не там, где камера)
-    const yaw = rider === 'ski' ? -heading : -heading * 0.9;
+    const yaw = menu ? Math.PI : rider === 'ski' ? -heading : -heading * 0.9 - (P.stanceVis || 0);   // в меню — лицом к камере
     R.root.rotation.order = 'YXZ';
     R.root.rotation.y = yaw;
     R.root.rotation.x = tiltX;
@@ -2016,6 +2020,7 @@ export function create(root, canvas2d) {
       c: P.crouch, grab: !!(P.air && P.trick && P.z > 40), plant: P.plant, noGear: false,
       look: heading * 0.6, clock: v.clock, turn: turnS * 0.2, dt,
     };
+    if (menu) { pose.anim = 'Dance_Loop'; pose.noGear = true; }
 
     if (P.air && P.trick) {
       // с трамплина — сальто назад: оборот завершается ровно к приземлению, в середине райдер группируется
@@ -2238,9 +2243,12 @@ export function create(root, canvas2d) {
       target.set(px + Math.sin(a) * 6.5, 3.4, Math.cos(a) * 6.5 - 1.2);
       look.set(px, -2.2, -1.2);
     } else if (v.state === 'start') {
-      const a = t3 * 0.22;
-      target.set(px + Math.sin(a) * 6.2, 2.2, Math.cos(a) * 6.2 - 1);
-      look.set(px, 1.0, 0);
+      // меню: камера спереди, танцовщица сбоку от панели (на узком экране — по центру, ниже панели не спрятать)
+      const wide = camera.aspect > 1.2;
+      const sh = wide ? 3.0 * Math.min(1.4, camera.aspect / 1.6) : 0;
+      const sway = Math.sin(t3 * 0.35) * 0.6;
+      target.set(px + sh + sway, 1.7, -5.4);
+      look.set(px + sh, 1.05, 0);
     } else {
       const narrow = clamp(1 / camera.aspect, 1, 2.2) - 1;          // портрет: камера выше и дальше
       // в высоком прыжке камера отстаёт и держится ниже райдера — видно, над чем он летит
