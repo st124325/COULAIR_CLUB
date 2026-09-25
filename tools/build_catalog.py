@@ -106,6 +106,8 @@ def read_card(folder: Path):
 
 
 STOP_RE = re.compile(r'^(почему стоит|📦|оперативная отправка|отправим)', re.I)
+# строки, которые на сайт не попадают: призыв писать в личку, хэштеги
+SKIP_RE = re.compile(r'(за\s*заказом|пиши(те)?\s*в\s*лс|в\s*личк|@coulair)|^\s*#', re.I)
 ABOUT_RE = re.compile(r'^о (шлеме|товаре|ботинках|штанах)\s*:?$', re.I)
 
 
@@ -122,6 +124,8 @@ def read_avito(folder: Path):
         if sep and key in ('цена', 'старая цена', 'в наличии', 'размер', 'бренд', 'модель', 'тип', 'скрыть', 'порядок', 'бейдж', 'состояние'):
             if key != 'модель':
                 meta[key] = clean(v)
+            continue
+        if SKIP_RE.search(line):
             continue
         if STOP_RE.match(clean(line)) or STOP_RE.match(line):
             about = None                       # дальше — реклама профиля и доставка Авито

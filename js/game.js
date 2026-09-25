@@ -801,14 +801,16 @@
       }
 
       // следы
-      if (!P.air) tracks.push({ x: P.x, y: P.y, a: P.angle });
+      if (!is3D() || rider !== 'ski') P.swayX = 0;
+      const PX = P.x + (P.swayX || 0);                          // где реально лыжи (у 3D-лыжницы с петлянием)
+      if (!P.air) tracks.push({ x: PX, y: P.y, a: P.angle });
       else tracks.push(null);
       if (tracks.length > 180) tracks.shift();
 
       // столкновения
       for (const o of objects) {
         if (o.dead) continue;
-        const dx = o.x - P.x, dy = o.y - P.y;
+        const dx = o.x - PX, dy = o.y - P.y;
         // трамплин срабатывает ровно на кромке (o.y), если райдер на его ширине
         if (o.type === 'ramp' || o.type === 'bigramp') {
           const lip = o.y + (o.lip || 0);

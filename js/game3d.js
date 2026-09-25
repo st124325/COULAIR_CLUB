@@ -952,6 +952,27 @@ class Rider {
     if (this.board) this.board.visible = false;
   }
 
+  // Лыжница в своей анимации петляет влево-вправо. Показываем половину размаха,
+  // а оставшуюся половину (swayOut, м) отдаём игре — по ней идут след и хитбокс.
+  dampSway(dt) {
+    this.swayOut = 0;
+    if (this.model !== 'ski-lady') return;
+    if (!this.feet) {
+      this.feet = [];
+      this.skin.traverse(o => { if (o.isBone && /^DEF-foot[._]?[LR]/i.test(o.name)) this.feet.push(o); });
+    }
+    if (this.feet.length < 2) return;
+    this.skin.position.x = 0;
+    this.skin.updateWorldMatrix(true, true);
+    const a = this.inner.worldToLocal(wpos(this.feet[0])), b = this.inner.worldToLocal(wpos(this.feet[1]));
+    const x = (a.x + b.x) / 2;                                   // где сейчас лыжи относительно центра
+    if (this.swayBase === undefined) this.swayBase = x;
+    this.swayBase += (x - this.swayBase) * Math.min(1, dt * 0.8);   // середина качания
+    const sway = x - this.swayBase;
+    this.skin.position.x = -this.swayBase - sway * 0.5;          // вдвое меньше размах, центр — на линии игрока
+    this.swayOut = sway * 0.5;
+  }
+
   updateOwn(pose) {
     const dt = pose.dt || 0.016;
     const map = { Death01: 'Fall', Swim_Idle_Loop: 'Fall', Dance_Loop: 'Idle_2_Victory', Hit_Head: 'Fall' };
@@ -972,6 +993,7 @@ class Rider {
       this.ride3[2].setEffectiveWeight(Math.max(0, -w) * k);
     }
     this.mixer.update(dt);
+    this.dampSway(dt);
     if (this.board) this.board.visible = false;
     if (this.skis) this.skis.forEach(o => { o.visible = false; });
     if (this.poles) this.poles.forEach(o => { o.visible = false; });
@@ -1993,6 +2015,8 @@ export function create(root, canvas2d) {
     R.root.position.y = ph + lift;
     R.setShield(P.shield);
     R.update(pose);
+    // смещение лыж от петляния модели → в игру (след и хитбокс); ось X модели смотрит против игровой X
+    P.swayX = R.swayOut && !P.crash ? (-R.swayOut * Math.cos(R.root.rotation.y)) / S : 0;
     R.root.visible = !(P.inv > 0 && Math.floor(P.inv * 12) % 2);
     riderAO.position.set(px, 0.014 + (grounded ? lift : 0), R.root.position.z);
     riderAO.scale.setScalar(1.5 + ph * 0.6);
