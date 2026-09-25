@@ -125,7 +125,7 @@
           <button data-mode="2d" aria-pressed="true">2D</button><button data-mode="3d" aria-pressed="false">3D</button>
         </div>
         <button class="game__start" data-game-start>Поехали</button>
-        <p class="game__credits">3D: сноубордист — <a href="https://sketchfab.com/3d-models/b8a85b8427c64d098ca598188baca93c" target="_blank" rel="noopener">onirix</a> (CC BY 4.0) · лыжница — <a href="https://sketchfab.com/3d-models/52aabb1e0773487b93a6e56d0f0b875b" target="_blank" rel="noopener">lancehuang526</a> (CC BY 4.0) · анимации меню — <a href="https://quaternius.com" target="_blank" rel="noopener">Quaternius</a> (CC0)</p>
+        <p class="game__credits">3D: сноубордист — <a href="https://sketchfab.com/3d-models/b8a85b8427c64d098ca598188baca93c" target="_blank" rel="noopener">onirix</a> (CC BY 4.0) · лыжница — <a href="https://sketchfab.com/3d-models/52aabb1e0773487b93a6e56d0f0b875b" target="_blank" rel="noopener">lancehuang526</a> (CC BY 4.0)</p>
         <p class="game__keys">← → — поворот · пробел — прыжок<br>В воздухе: ← → — вращение · держи пробел — сальто · ↓ — грэб<br>Сноуборд: ↓ на земле — реверт, 180° в воздухе — едешь свитчем<br>V — 2D/3D · Esc — выход</p>
       </div>
 

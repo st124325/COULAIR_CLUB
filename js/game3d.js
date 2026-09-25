@@ -19,7 +19,7 @@ import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/
    падение и «барахтанье» — настоящие анимации из библиотеки. Пока модель грузится — процедурный райдер. */
 const MODEL_V = new URL(import.meta.url).searchParams.get('v') || '';
 const modelCache = {};
-const MENU_YAW = Math.PI / 2;                             // в меню модель повёрнута лицом к камере
+const MENU_YAW = { board: Math.PI / 2, ski: Math.PI };     // в меню модель повёрнута лицом к камере
 function loadRiderModel(kind) {
   if (!modelCache[kind]) {
     const url = new URL(`../assets/models/rider-${kind}.glb${MODEL_V ? '?v=' + MODEL_V : ''}`, import.meta.url).href;
@@ -1921,12 +1921,11 @@ export function create(root, canvas2d) {
     }
 
     /* --- райдер --- */
-    // в меню — сноубордистка Onirix празднует на доске
+    // в меню — модель выбранного райдера (лыжница или сноубордистка Onirix)
     const menu = v.state === 'start';
-    const shown = menu ? 'board' : rider;
+    const shown = rider;
     if (!riders[shown]) {
-      riders[shown] = shown === 'dancer' ? new Rider('board', v.RIDERS.board, M, 'board')
-        : shown === 'board' ? new Rider('board', v.RIDERS.board, M, 'board-onirix')
+      riders[shown] = shown === 'board' ? new Rider('board', v.RIDERS.board, M, 'board-onirix')
         : new Rider(shown, v.RIDERS[shown], M, 'ski-lady');
       world.add(riders[shown].root);
     }
@@ -1954,7 +1953,7 @@ export function create(root, canvas2d) {
     R.pivot.rotation.set(0, 0, 0, 'XYZ');
     R.pivot.position.set(0, 0.95, 0);
     R.root.position.set(px, 0, 0);                              // райдер стоит там, где он на самом деле (а не там, где камера)
-    const yaw = menu ? MENU_YAW : rider === 'ski' ? -heading : -heading * 0.9 - (P.stanceVis || 0);   // в меню — лицом к камере
+    const yaw = menu ? MENU_YAW[rider] : rider === 'ski' ? -heading : -heading * 0.9 - (P.stanceVis || 0);   // в меню — лицом к камере
     R.root.rotation.order = 'YXZ';
     R.root.rotation.y = yaw;
     R.root.rotation.x = tiltX;
