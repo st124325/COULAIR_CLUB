@@ -13,9 +13,8 @@ const CONFIG = {
     { id: 'instagram', label: 'Instagram', url: '' },
   ],
 
-  // Видео на первом экране: после первого проигрывания появляется матовый блок, дальше видео крутится по кругу.
-  // На узких экранах берётся облегчённая 720p-версия.
-  heroVideo: { desktop: 'assets/hero.mp4', mobile: 'assets/hero-480.mp4', anim: 'assets/hero.webp' },
+  // Первый экран: фото сменяют друг друга каждые heroInterval мс
+  heroInterval: 3000,
 
   // 360° штанов: кадры, нарезанные из видео (01.jpg … 72.jpg = полный оборот)
   pants360: { path: 'assets/pants360/', count: 144 },
@@ -134,60 +133,29 @@ function initHeader() {
    Первый экран: видео один раз → матовый блок
    ===================================================================== */
 function initHero() {
-  const video = $('#heroVideo');
-  if (!video) return;
+  const box = $('#heroSlides');
+  if (!box) return;
+  const slides = $$('.hero__slide', box);
   const offer = $('#offer');
-  let shown = false, fellBack = false, started = false;
-  const showOffer = () => { if (!shown) { shown = true; offer.classList.add('is-visible'); } };
-  // Нет файла / ошибка — показываем заглушку со снегом и блок
-  const fallback = () => {
-    if (fellBack) return;
-    fellBack = true;
-    video.hidden = true;
-    startSnow($('#heroSnow'), $('#hero'), 0.6);
-    setTimeout(showOffer, 700);
-  };
-  // Видео не пошло (автозапуск запрещён, энергосбережение, медленная сеть) —
-  // вместо застывшего кадра играет анимированная картинка: её браузеры не блокируют
-  let anim = null;
-  const showAnim = () => {
-    if (started || anim || fellBack) return;
-    anim = document.createElement('img');
-    anim.className = 'hero__video hero__anim';
-    anim.alt = ''; anim.setAttribute('aria-hidden', 'true');
-    anim.decoding = 'async';
-    anim.src = CONFIG.heroVideo.anim;
-    video.after(anim);
-    setTimeout(showOffer, 7000);                            // картинка длится как ролик — потом спецпредложение
-  };
-  const onPlaying = () => {
-    if (started) return;
-    started = true;
-    if (anim) { anim.remove(); anim = null; }               // видео догрузилось — картинка больше не нужна
-  };
-  video.addEventListener('playing', onPlaying);
-  video.addEventListener('timeupdate', () => { if (video.currentTime > 0.05) onPlaying(); });
-
-  // Первый раз проигрывается целиком → показываем спецпредложение, дальше видео идёт по кругу
-  video.addEventListener('ended', () => {
-    showOffer();
-    video.loop = true;
-    video.currentTime = 0;
-    video.play().catch(() => {});
-  }, { once: true });
-  video.addEventListener('error', fallback);
-  video.muted = true;                                       // свойство, а не только атрибут — иначе автозапуск могут запретить
-  video.src = window.innerWidth < 900 ? CONFIG.heroVideo.mobile : CONFIG.heroVideo.desktop;
-  const tryPlay = () => { const p = video.play(); return p && p.catch ? p : Promise.resolve(); };
-  tryPlay().catch(showAnim);
-  // браузер запретил автозапуск — пробуем снова при первом касании, прокрутке или нажатии
-  const kick = () => { if (!started) tryPlay().catch(() => {}); };
-  for (const ev of ['pointerdown', 'touchstart', 'scroll', 'keydown']) window.addEventListener(ev, kick, { once: true, passive: true });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) kick(); });
-  // долго грузится — пока показываем анимацию
-  setTimeout(() => { if (!started) showAnim(); }, 1500);
-  // Страховка: если видео зависло
-  setTimeout(showOffer, 20000);
+  // спецпредложение — после первой смены кадра
+  setTimeout(() => offer.classList.add('is-visible'), CONFIG.heroInterval * 0.8);
+  // фото не загрузилось — убираем его; не осталось ни одного — снег на тёмном фоне
+  slides.forEach(img => img.addEventListener('error', () => {
+    img.remove();
+    if (!$('.hero__slide', box)) startSnow($('#heroSnow'), $('#hero'), 0.6);
+  }));
+  let i = 0;
+  setInterval(() => {
+    const list = $$('.hero__slide', box);
+    if (list.length < 2 || document.hidden) return;
+    list[i % list.length].classList.remove('is-active');
+    i = (i + 1) % list.length;
+    // перезапуск «наезда»: сначала сбросить масштаб, потом включить
+    const next = list[i];
+    next.style.transition = 'none'; next.style.transform = 'scale(1.02)'; void next.offsetWidth;
+    next.style.transition = ''; next.style.transform = '';
+    next.classList.add('is-active');
+  }, CONFIG.heroInterval);
 }
 
 /* =====================================================================

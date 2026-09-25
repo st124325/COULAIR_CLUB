@@ -67,7 +67,10 @@
 
     <!-- ========== Первый экран: видео ========== -->
     <section class="hero" id="hero">
-      <video class="hero__video" id="heroVideo" muted playsinline preload="auto" poster="assets/hero-poster.jpg"></video>
+      <div class="hero__slides" id="heroSlides">
+        <img class="hero__slide is-active" style="object-position: 50% 45%" src="assets/hero-1.jpg" alt="Сноубордист в прыжке над облаками" fetchpriority="high">
+        <img class="hero__slide" style="object-position: 60% 30%" src="assets/hero-2.jpg" alt="Лыжник в прыжке со скалы">
+      </div>
       <div class="hero__fallback" aria-hidden="true"></div>
       <canvas class="hero__snow" id="heroSnow" aria-hidden="true"></canvas>
       <div class="hero__shade" aria-hidden="true"></div>
