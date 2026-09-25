@@ -218,7 +218,11 @@
         </label>
         <label class="field">
           <span>Город доставки</span>
-          <input name="city" type="text" autocomplete="address-level2" required placeholder="Москва">
+          <span class="suggest">
+            <input name="city" type="text" autocomplete="off" required placeholder="Начните вводить: Екатеринбург"
+                   role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="citySuggest">
+            <ul class="suggest__list" id="citySuggest" role="listbox" hidden></ul>
+          </span>
         </label>
         <label class="field">
           <span>Комментарий <em>(необязательно)</em></span>

@@ -664,6 +664,90 @@ function initOrderForm() {
 }
 
 /* =====================================================================
+   Город доставки: подсказки из списка всех городов России
+   (assets/data/cities-ru.json, источник — hflabs/city, CC BY-SA 4.0)
+   ===================================================================== */
+function initCitySuggest() {
+  const input = document.querySelector('#orderForm [name="city"]');
+  const list = $('#citySuggest');
+  if (!input || !list) return;
+  let cities = null, loading = null, items = [], active = -1;
+  const norm = t => t.toLowerCase().replace(/ё/g, 'е').replace(/[‐-―-]/g, '-').trim();
+  const load = () => loading || (loading = fetch(new URL('assets/data/cities-ru.json', document.baseURI))
+    .then(r => r.json())
+    .then(d => { cities = d.cities.map(([name, region, pop]) => ({ name, region, pop, key: norm(name) })); })
+    .catch(() => { loading = null; }));
+  const label = c => c.region ? `${c.name}, ${c.region}` : c.name;
+
+  // разговорные сокращения
+  const ALIAS = { спб: 'санкт-петербург', питер: 'санкт-петербург', мск: 'москва', екб: 'екатеринбург', нск: 'новосибирск', нн: 'нижний новгород', ннов: 'нижний новгород', крд: 'краснодар', влг: 'волгоград' };
+  function search(q) {
+    q = norm(q);
+    if (!q || !cities) return [];
+    if (ALIAS[q]) q = ALIAS[q];
+    const starts = [], words = [], inside = [];
+    for (const c of cities) {                                  // уже отсортированы по населению
+      if (c.key.startsWith(q)) starts.push(c);
+      else if (c.key.split(/[\s-]/).some(w => w.startsWith(q))) words.push(c);
+      else if (q.length >= 3 && c.key.includes(q)) inside.push(c);
+      if (starts.length >= 8) break;
+    }
+    return [...starts, ...words, ...inside].slice(0, 8);
+  }
+  function mark(name, q) {
+    const i = norm(name).indexOf(norm(q));
+    if (i < 0 || !q) return escapeHtml(name);
+    return escapeHtml(name.slice(0, i)) + '<mark>' + escapeHtml(name.slice(i, i + q.trim().length)) + '</mark>' + escapeHtml(name.slice(i + q.trim().length));
+  }
+  function open(show) {
+    list.hidden = !show;
+    input.setAttribute('aria-expanded', String(show));
+  }
+  function render() {
+    const q = input.value;
+    items = search(q);
+    active = items.length ? 0 : -1;
+    if (!q.trim()) { open(false); return; }
+    if (!cities) { list.innerHTML = '<li class="suggest__empty">Загружаем список городов…</li>'; open(true); return; }
+    list.innerHTML = items.length
+      ? items.map((c, i) => `<li class="suggest__item" role="option" id="city-opt-${i}" data-i="${i}" aria-selected="${i === active}">
+          <span>${mark(c.name, q)}</span><span class="suggest__region">${escapeHtml(c.region)}</span></li>`).join('')
+      : '<li class="suggest__empty">Такого города нет в списке — напишите как есть, уточним при звонке</li>';
+    open(true);
+    input.setAttribute('aria-activedescendant', active >= 0 ? `city-opt-${active}` : '');
+  }
+  function highlight(i) {
+    active = (i + items.length) % items.length;
+    $$('.suggest__item', list).forEach((li, k) => li.setAttribute('aria-selected', String(k === active)));
+    const li = $(`#city-opt-${active}`); if (li) li.scrollIntoView({ block: 'nearest' });
+    input.setAttribute('aria-activedescendant', `city-opt-${active}`);
+  }
+  function choose(i) {
+    const c = items[i];
+    if (!c) return;
+    input.value = label(c);
+    input.closest('.field').classList.remove('is-invalid');
+    open(false);
+  }
+
+  input.addEventListener('focus', () => { load().then(() => { if (document.activeElement === input && input.value) render(); }); });
+  input.addEventListener('input', () => { if (!cities) load().then(render); render(); });
+  input.addEventListener('keydown', e => {
+    if (list.hidden || !items.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); highlight(active + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); highlight(active - 1); }
+    else if (e.key === 'Enter') { e.preventDefault(); choose(active); }
+    else if (e.key === 'Escape') { e.stopPropagation(); open(false); }
+  });
+  // mousedown, а не click: иначе поле теряет фокус раньше, чем сработает выбор
+  list.addEventListener('mousedown', e => {
+    const li = e.target.closest('.suggest__item');
+    if (li) { e.preventDefault(); choose(Number(li.dataset.i)); }
+  });
+  input.addEventListener('blur', () => setTimeout(() => open(false), 120));
+}
+
+/* =====================================================================
    Поиск
    ===================================================================== */
 function initSearch() {
@@ -955,6 +1039,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initCatalogPage();
   initProductPage();
   initOrderForm();
+  initCitySuggest();
   initSearch();
   initSocials();
   startSnow($('#snow'), $('#footer'));

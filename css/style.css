@@ -422,6 +422,19 @@ svg.fill { fill: currentColor; stroke: none; }
 }
 .field input:focus, .field textarea:focus { outline: none; border-color: var(--ink); }
 .field.is-invalid input { border-color: var(--sale); }
+/* подсказки городов */
+.suggest { position: relative; display: block; }
+.suggest__list {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5;
+  max-height: 264px; overflow-y: auto; margin: 0; padding: 6px;
+  list-style: none; background: #fff; border: 1.5px solid var(--line); border-radius: 12px;
+  box-shadow: 0 14px 34px rgba(0,0,0,.14);
+}
+.suggest__item { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+.suggest__item[aria-selected="true"], .suggest__item:hover { background: var(--sand); }
+.suggest__item mark { background: none; color: inherit; font-weight: 800; }
+.suggest__region { flex-shrink: 0; font-size: 13px; color: var(--muted); text-align: right; }
+.suggest__empty { padding: 10px 12px; font-size: 14px; color: var(--muted); }
 .check { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--muted); }
 .check input { width: 18px; height: 18px; margin: 0; accent-color: var(--ink); flex-shrink: 0; }
 .form__error { margin: 0; color: var(--sale); font-size: 14px; font-weight: 600; }
