@@ -7,3 +7,8 @@ rider-board-onirix.glb — «Snowboarder Onirix» by onirix,
 https://sketchfab.com/3d-models/b8a85b8427c64d098ca598188baca93c
 Лицензия: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
 Изменения: убран меш снежного шлейфа, анимации сохранены, экспорт в GLB.
+
+rider-ski-lady.glb — «Skiing Lady» by lancehuang526,
+https://sketchfab.com/3d-models/52aabb1e0773487b93a6e56d0f0b875b
+Лицензия: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
+Изменения: масштаб и положение, экспорт в GLB (исходник: tools/blender/skier-lady.blend).

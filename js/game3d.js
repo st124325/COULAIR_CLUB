@@ -789,6 +789,7 @@ function makeHelmet(M, shellMat, accentMat) {
 class Rider {
   constructor(kind, R, M, model = kind) {
     this.kind = kind;
+    this.model = model;
     this.root = new THREE.Group();          // позиция на склоне, курс, крен
     this.pivot = new THREE.Group();         // центр вращения для трюков
     this.pivot.position.y = 0.95;
@@ -901,7 +902,8 @@ class Rider {
     this.skin = new THREE.Group();
     this.skin.add(scene);
     this.inner.add(this.skin);
-    if (gltf.animations.some(c => c.name === 'Turn_Left')) return this.attachOwnAnim(gltf);
+    // модели со своими анимациями катания (сноубордист Onirix, лыжница) — без IK
+    if (gltf.animations.some(c => c.name === 'Turn_Left') || this.model === 'ski-lady') return this.attachOwnAnim(gltf);
     this.bones = {};
     scene.traverse(o => {
       if (o.isBone) this.bones[o.name] = o;
@@ -937,8 +939,13 @@ class Rider {
     this.clips = {};
     for (const c of gltf.animations) this.clips[c.name] = this.mixer.clipAction(c);
     for (const n of ['Fall', 'Victory', 'Goal']) if (this.clips[n]) { this.clips[n].setLoop(THREE.LoopOnce, 1); this.clips[n].clampWhenFinished = true; }
-    this.ride3 = ['Idle', 'Turn_Left', 'Turn_Right'].map(n => this.clips[n]);
-    this.ride3.forEach(a => { a.play(); a.setEffectiveWeight(0); });
+    // стойка — Idle или единственный клип модели; клипов поворота может не быть
+    const idle = this.clips.Idle || this.mixer.clipAction(gltf.animations[0]);
+    this.ride3 = [idle, this.clips.Turn_Left || null, this.clips.Turn_Right || null];
+    this.ride3.forEach(a => { if (a) { a.play(); a.setEffectiveWeight(0); } });
+    // свои лыжи и палки модели — прячутся при падении (вместо них разлетаются обломки)
+    this.ownGear = [];
+    scene.traverse(o => { if (/^(ski|pole)[._]?[LR]$/.test(o.name)) this.ownGear.push(o); });
     this.special = null;
     for (const o of this.proc) o.visible = false;
     this.helmet.visible = false;
@@ -948,20 +955,27 @@ class Rider {
   updateOwn(pose) {
     const dt = pose.dt || 0.016;
     const map = { Death01: 'Fall', Swim_Idle_Loop: 'Fall', Dance_Loop: 'Idle_2_Victory', Hit_Head: 'Fall' };
-    const want = pose.anim ? (map[pose.anim] || pose.anim) : null;
+    let want = pose.anim ? (map[pose.anim] || pose.anim) : null;
+    if (want && !this.clips[want]) want = null;               // такого клипа у модели нет — продолжаем стойку
     if (want !== this.special) {
       if (this.special && this.clips[this.special]) this.clips[this.special].fadeOut(0.2);
       if (want && this.clips[want]) this.clips[want].reset().setEffectiveWeight(1).fadeIn(0.15).play();
       this.special = want;
     }
     // повороты: вес клипа — по направлению курса
-    const w = clamp(pose.look * 1.8, -1, 1);
+    const turns = !!(this.ride3[1] && this.ride3[2]);
+    const w = turns ? clamp(pose.look * 1.8, -1, 1) : 0;
     const k = want ? 0 : 1;
     this.ride3[0].setEffectiveWeight((1 - Math.abs(w)) * k);
-    this.ride3[1].setEffectiveWeight(Math.max(0, w) * k);
-    this.ride3[2].setEffectiveWeight(Math.max(0, -w) * k);
+    if (turns) {
+      this.ride3[1].setEffectiveWeight(Math.max(0, w) * k);
+      this.ride3[2].setEffectiveWeight(Math.max(0, -w) * k);
+    }
     this.mixer.update(dt);
     if (this.board) this.board.visible = false;
+    if (this.skis) this.skis.forEach(o => { o.visible = false; });
+    if (this.poles) this.poles.forEach(o => { o.visible = false; });
+    for (const g of this.ownGear) g.visible = !pose.noGear;
   }
 
   play(name, fade = 0.25) {
@@ -1891,7 +1905,7 @@ export function create(root, canvas2d) {
     if (!riders[shown]) {
       riders[shown] = shown === 'dancer' ? new Rider('board', v.RIDERS.board, M, 'board')
         : shown === 'board' ? new Rider('board', v.RIDERS.board, M, 'board-onirix')
-        : new Rider(shown, v.RIDERS[shown], M);
+        : new Rider(shown, v.RIDERS[shown], M, 'ski-lady');
       world.add(riders[shown].root);
     }
     for (const k in riders) riders[k].root.visible = k === shown;
@@ -1960,7 +1974,7 @@ export function create(root, canvas2d) {
       const k = clamp(P.crash / 0.9, 0, 1);
       const e = 1 - Math.pow(1 - k, 3);
       R.pivot.rotation.order = 'XYZ';
-      if (R.skin) {
+      if (R.skin && !(R.flavor === 'own' && !R.clips.Fall)) {
         // у модели: полный кувырок в воздухе, а падение на спину — анимация Death01
         R.pivot.rotation.x = e * Math.PI * 2;
         R.pivot.position.y = 0.95 + Math.sin(k * Math.PI) * 0.8;
