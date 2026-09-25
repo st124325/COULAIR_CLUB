@@ -433,7 +433,13 @@ function initProductPage() {
   const openLightbox = () => { openLayer('#lightbox'); requestAnimationFrame(() => lbSlider.jump(main.index())); };
   $('#galleryTrack').addEventListener('click', openLightbox);
   $('#galleryZoom').addEventListener('click', openLightbox);
-  lb.addEventListener('click', e => { if (e.target.closest('.lightbox__slide') && !e.target.closest('img')) closeLayer(lb); });
+  // клик мимо фото закрывает просмотр (у картинок нет pointer-events — проверяем по координатам)
+  lb.addEventListener('click', e => {
+    const slide = e.target.closest('.lightbox__slide');
+    if (!slide) return;
+    const r = $('img', slide).getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) closeLayer(lb);
+  });
   lb.addEventListener('keydown', e => {
     if (e.key === 'ArrowRight') lbSlider.go(lbSlider.index() + 1);
     if (e.key === 'ArrowLeft') lbSlider.go(lbSlider.index() - 1);

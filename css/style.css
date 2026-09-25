@@ -25,6 +25,9 @@ body {
   overflow-x: hidden;
 }
 img, video, canvas, svg { display: block; max-width: 100%; }
+/* картинки не ловят наведение: Яндекс Браузер не показывает на них «Поиск по картинке»,
+   их нельзя утащить мышкой; клики проходят к ссылке/кнопке вокруг */
+img { pointer-events: none; -webkit-user-drag: none; user-select: none; -webkit-touch-callout: none; }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
 [hidden] { display: none !important; }
