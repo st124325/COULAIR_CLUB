@@ -589,8 +589,12 @@ svg.fill { fill: currentColor; stroke: none; }
 .tab:hover { border-color: var(--ink); }
 .tab[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
 .tab[aria-selected="true"] span { color: rgba(255,255,255,.6); }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 36px 6px; }
-.grid .card__body { padding: 12px 4px 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 20px 16px; }
+.grid .card__body { padding: 12px 12px 14px; }
+/* каталог: тонкая чёрная рамка у карточек */
+.grid .card, .catalog__track .card { border: 1px solid var(--ink); background: #fff; }
+.catalog__track .card__body { padding: 12px 12px 14px; }
+.catalog__track { gap: 8px; grid-auto-columns: calc((100% - 3 * 8px) / 3.35); }
 
 /* ---------- Адаптив ---------- */
 @media (max-width: 1100px) {
@@ -637,7 +641,7 @@ svg.fill { fill: currentColor; stroke: none; }
   .gallery__thumbs { padding: 0 16px; }
   .pdp__info { padding: 0 16px; }
   .pdp__actions { grid-template-columns: 1fr; }
-  .grid { grid-template-columns: 1fr 1fr; gap: 26px 4px; }
+  .grid { grid-template-columns: 1fr 1fr; gap: 12px 10px; }
   .grid .card__name { font-size: 14px; }
   .card__size { display: block; margin: 2px 0 0; }
 }
