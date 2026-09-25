@@ -952,6 +952,19 @@ class Rider {
     if (this.board) this.board.visible = false;
   }
 
+  // мировые позиции стоп модели (левая, правая) — для следа
+  feetWorld() {
+    if (!this.skin || this.flavor !== 'own') return null;
+    if (!this.feetBones) {
+      const f = [];
+      this.skin.traverse(o => { if (o.isBone && /foot/i.test(o.name) && !/end|toe/i.test(o.name)) f.push(o); });
+      const L = f.find(o => /[._-]?L(_|$)|\.L|L_\d/.test(o.name) && !/R_\d/.test(o.name)), Rb = f.find(o => /R(_\d|$)/.test(o.name) && o !== L);
+      this.feetBones = L && Rb ? [L, Rb] : null;
+    }
+    if (!this.feetBones) return null;
+    return this.feetBones.map(b => { b.updateWorldMatrix(true, false); return new THREE.Vector3().setFromMatrixPosition(b.matrixWorld); });
+  }
+
   // Лыжница в своей анимации петляет влево-вправо. Показываем половину размаха,
   // а оставшуюся половину (swayOut, м) отдаём игре — по ней идут след и хитбокс.
   dampSway(dt) {
@@ -1738,6 +1751,7 @@ export function create(root, canvas2d) {
   };
 
   const live = new Map();       // игровой объект → 3D-объект
+  const footTracks = [];        // след моделей: [[левая, правая], …] в игровых координатах, null — отрыв
 
   /* ----- следы ----- */
   const MAXT = 400;
@@ -2021,13 +2035,25 @@ export function create(root, canvas2d) {
     riderAO.scale.setScalar(1.5 + ph * 0.6);
     riderAO.material.opacity = 0.55 / (1 + ph * 0.8);
 
-    /* --- следы --- */
+    /* --- следы: у моделей — точно из-под ботинок (по костям стоп), у процедурного райдера — по курсу --- */
+    const feetW = R.feetWorld && !menu ? R.feetWorld() : null;
+    if (feetW) {
+      if (v.state !== 'play' && !P.crash) footTracks.length = 0;      // новый заезд — чистый снег
+      const pts = feetW.map(f => { const l = world.worldToLocal(f); return { x: ox - l.x / S, y: oy + l.z / S }; });
+      const onSnow = !P.air && !P.crash && v.state === 'play';
+      const last = footTracks[footTracks.length - 1];
+      if (!onSnow) { if (last) footTracks.push(null); }
+      else if (!last || Math.hypot(pts[0].x - last[0].x, pts[0].y - last[0].y) > 1.5) footTracks.push(pts);
+      while (footTracks.length > MAXT) footTracks.shift();
+      if (footTracks[0] === null) footTracks.shift();
+    }
     {
       const pos = trackGeo.attributes.position.array, cl = trackGeo.attributes.color.array;
-      const lines = rider === 'ski' ? [-0.12, 0.12] : [0];
+      const own = !!feetW;
+      const lines = own ? (rider === 'ski' ? [0, 1] : ['mid']) : rider === 'ski' ? [-0.12, 0.12] : [0];
       const w = rider === 'ski' ? 0.07 : 0.3;
       let n = 0;
-      const tr = v.tracks, len = tr.length;
+      const tr = own ? footTracks : v.tracks, len = tr.length;
       const put = (x, z, a, y) => {
         pos[n * 3] = x; pos[n * 3 + 1] = y; pos[n * 3 + 2] = z;
         cl[n * 4] = 0.5; cl[n * 4 + 1] = 0.6; cl[n * 4 + 2] = 0.78; cl[n * 4 + 3] = a;
@@ -2051,8 +2077,15 @@ export function create(root, canvas2d) {
           run = [];
         };
         for (let i = 0; i < len; i++) {
-          const t = tr[i];
-          if (!t) { flush(); continue; }
+          const t0 = tr[i];
+          if (!t0) { flush(); continue; }
+          if (own) {
+            // точка стопы: левая/правая лыжа или середина между ботинками (доска)
+            const t = off === 'mid' ? { x: (t0[0].x + t0[1].x) / 2, y: (t0[0].y + t0[1].y) / 2 } : t0[off];
+            run.push({ x: mx(t.x), z: mz(t.y), y: gy(t.x, t.y) + surfAt(t.x, t.y) + 0.06, f: ((i + 1) / len) * 0.85 });
+            continue;
+          }
+          const t = t0;
           // лыжа разнесена поперёк курса — тот же курс, что у модели райдера
           const h = Math.atan2(t.a * 0.8, 1 - 0.38 * Math.abs(t.a));
           run.push({
