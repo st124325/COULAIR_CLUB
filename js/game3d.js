@@ -1963,7 +1963,7 @@ export function create(root, canvas2d) {
       c: P.crouch, grab: !!(P.air && P.trick && P.z > 40), plant: P.plant, noGear: false,
       look: heading * 0.6, clock: v.clock, turn: turnS * 0.2, dt,
     };
-    if (menu) { pose.anim = 'Dance_Loop'; pose.noGear = true; }
+    if (menu) { pose.anim = 'Dance_Loop'; pose.noGear = false; }
 
     if (P.air && P.trick) {
       // с трамплина — сальто назад: оборот завершается ровно к приземлению, в середине райдер группируется
