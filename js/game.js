@@ -31,6 +31,14 @@
   ];
   // крутые участки («чёрная трасса»): каждые 3000 ед. (300 м) — стенка; совпадает с рельефом 3D (PITCH_LEN в game3d.js)
   const PITCH = { len: 3000, from: 0.58, to: 0.78, boost: 0.6 };
+  // место для трассы: разгон к трамплину (~1400 ед.) — на ровном после крутяка, сама трасса — до следующего
+  const ROAD_WIN = [0.36, 0.45];                                  // доли периода PITCH.len
+  const roadSpot = y => {
+    const L = PITCH.len, base = Math.floor(y / L) * L, f = (y - base) / L;
+    if (f >= ROAD_WIN[0] && f <= ROAD_WIN[1]) return y;
+    const at = ROAD_WIN[0] + Math.random() * (ROAD_WIN[1] - ROAD_WIN[0]);
+    return (f < ROAD_WIN[0] ? base : base + L) + at * L;
+  };
   const pitchF = y => { const t = y / PITCH.len; return t - Math.floor(t); };
   // крутизна 0…1 (пик в середине стенки)
   const steepness = y => { const f = pitchF(y); if (f < PITCH.from || f > PITCH.to) return 0; const u = (f - PITCH.from) / (PITCH.to - PITCH.from); return 4 * u * (1 - u); };
@@ -305,7 +313,7 @@
           stance: 1, stanceVis: 0, revertLatch: false, takeoffStance: 1, combo: null };
     objects = []; tracks = []; particles = []; texts = []; debris = [];
     lastCrest = -1;
-    cam = { x: 0 }; spawnY = 200; score = 0; bonus = 0; shake = 0; nextRoadY = ROAD.first;
+    cam = { x: 0 }; spawnY = 200; score = 0; bonus = 0; shake = 0; nextRoadY = roadSpot(ROAD.first);
     keys = { left: false, right: false, flip: false, grab: false };
     best = load();
     // стартовая поляна без препятствий + пара снежинок, чтобы сразу понять, что собирать
@@ -492,7 +500,7 @@
   function spawnRow() {
     const difficulty = Math.min(1, P.y / 60000);
     spawnY += rand(46, 92) * (1 - difficulty * 0.45);
-    if (spawnY > nextRoadY - ROAD.clearBefore) { spawnRoad(nextRoadY); nextRoadY += rand(ROAD.gapMin, ROAD.gapMax); }
+    if (spawnY > nextRoadY - ROAD.clearBefore) { spawnRoad(nextRoadY); nextRoadY = roadSpot(nextRoadY + rand(ROAD.gapMin, ROAD.gapMax)); }
     // знаки «чёрная трасса» над каждой стенкой
     const crest = Math.floor(spawnY / PITCH.len) * PITCH.len + PITCH.from * PITCH.len;
     if (spawnY >= crest - 260 && lastCrest !== crest && crest > 600) {
@@ -582,6 +590,10 @@
       y = spawnY + rand(-20, 20);
     } while (!isFree(x, y, type, gap) && ++tries < 8);
     if (tries >= 8) return;
+    if (type === 'ramp') {
+      const f = pitchF(y);
+      if (f > PITCH.from - 0.06 && f < PITCH.to + 0.04) type = 'flake';   // на стенке трамплин встал бы криво
+    }
     switch (type) {
       case 'tree':   objects.push({ type, x, y, r: 11, h: rand(58, 96), sway: Math.random() * 6 }); break;
       case 'rock':   objects.push({ type, x, y, r: 13, w: rand(22, 34) }); break;

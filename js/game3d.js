@@ -1551,6 +1551,19 @@ export function create(root, canvas2d) {
   const kickerGroove = grooves.clone(); kickerGroove.repeat.set(1 / GROOVE_TILE, 1 / GROOVE_TILE); kickerGroove.offset.set(0, 0);
   kickerSnow.repeat.set(2, 2); kickerGroove.repeat.set(3, 3);
   const groundLikeMat = new THREE.MeshStandardMaterial({ map: kickerSnow, normalMap: kickerGroove, normalScale: new THREE.Vector2(0.35, 0.35), roughness: 0.74 });
+  // насыпь повторяет рельеф под собой: без щелей и «висящих» краёв на буграх
+  function conformToTerrain(geo, o) {
+    const g = geo.clone(), p = g.attributes.position;
+    const cx = o.x * S, cz = o.y * S, h0 = terrH(cx, cz);
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), z = p.getZ(i);
+      const d = terrH(cx - x, cz + z) - h0;               // ось X модели смотрит против игровой X
+      const skirt = p.getY(i) < 0.02 ? -0.05 : 0;          // края чуть утоплены в снег
+      p.setY(i, p.getY(i) + d + skirt);
+    }
+    g.computeVertexNormals();
+    return g;
+  }
   const kickerGeo = snowKickerGeometry(KICKERS.ramp, 11);
   const bigKickerGeo = snowKickerGeometry(KICKERS.bigramp, 23);
   const roadTex = roadTexture();
@@ -1662,13 +1675,13 @@ export function create(root, canvas2d) {
       g.rotation.y = rand(0, Math.PI * 2);
       return g;
     },
-    ramp() {
-      const k = new THREE.Mesh(kickerGeo, groundLikeMat);
+    ramp(o) {
+      const k = new THREE.Mesh(conformToTerrain(kickerGeo, o), groundLikeMat);
       k.castShadow = true; k.receiveShadow = true;
       return k;
     },
-    bigramp() {
-      const k = new THREE.Mesh(bigKickerGeo, groundLikeMat);
+    bigramp(o) {
+      const k = new THREE.Mesh(conformToTerrain(bigKickerGeo, o), groundLikeMat);
       k.castShadow = true; k.receiveShadow = true;
       return k;
     },

@@ -236,6 +236,16 @@ svg.fill { fill: currentColor; stroke: none; }
 .perks { margin: 26px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; font-size: 15px; color: #45433f; }
 .perks li { display: flex; gap: 10px; align-items: center; }
 .perks li::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); flex-shrink: 0; }
+/* раскрывающиеся характеристики у штанов */
+.specs-acc { margin-top: 22px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.specs-acc summary { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; font-size: 17px; font-weight: 700; cursor: pointer; list-style: none; }
+.specs-acc summary::-webkit-details-marker { display: none; }
+.specs-acc summary::after { content: "+"; font-size: 24px; font-weight: 400; transition: transform .25s; }
+.specs-acc[open] summary::after { transform: rotate(45deg); }
+.specs-acc__list { margin: 0; padding: 0 0 18px 20px; display: grid; gap: 12px; font-size: 15px; line-height: 1.6; color: #45433f; }
+.specs-acc__list strong { color: var(--ink); }
+.specs-acc[open] .specs-acc__list { animation: accOpen .3s ease; }
+@keyframes accOpen { from { opacity: 0; transform: translateY(-6px); } }
 
 /* ---------- Категории (как фото 5) ---------- */
 .categories { padding: 12px 16px 56px; }
