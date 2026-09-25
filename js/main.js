@@ -664,6 +664,34 @@ function initOrderForm() {
 }
 
 /* =====================================================================
+   «Характеристики»: плавное раскрытие по высоте, пункты проявляются по очереди
+   ===================================================================== */
+function initSpecsAccordion() {
+  $$('.specs-acc').forEach(det => {
+    const sum = $('summary', det), body = $('.specs-acc__body', det);
+    if (!sum || !body) return;
+    let anim = null;
+    const run = (from, to, done) => {
+      if (anim) anim.cancel();
+      anim = body.animate({ height: [from + 'px', to + 'px'] }, { duration: 420, easing: 'cubic-bezier(.2,.7,.2,1)' });
+      anim.onfinish = () => { anim = null; body.style.height = ''; done && done(); };
+    };
+    sum.addEventListener('click', e => {
+      e.preventDefault();
+      if (!det.open) {
+        det.open = true;
+        const h = body.scrollHeight;
+        requestAnimationFrame(() => det.classList.add('is-shown'));
+        run(0, h);
+      } else {
+        det.classList.remove('is-shown');
+        run(body.offsetHeight, 0, () => { det.open = false; });
+      }
+    });
+  });
+}
+
+/* =====================================================================
    Город доставки: подсказки из списка всех городов России
    (assets/data/cities-ru.json, источник — hflabs/city, CC BY-SA 4.0)
    ===================================================================== */
@@ -1040,6 +1068,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initProductPage();
   initOrderForm();
   initCitySuggest();
+  initSpecsAccordion();
   initSearch();
   initSocials();
   startSnow($('#snow'), $('#footer'));
