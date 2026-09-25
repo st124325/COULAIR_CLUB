@@ -27,7 +27,7 @@
     bus:   { len: 150, wid: 32, h: 100, speed: [230, 300], name: 'Сбил автобус!' },
   };
   const TYPES = [                       // вес при генерации трассы
-    ['tree', 44], ['rock', 18], ['flake', 18], ['gate', 8], ['ramp', 7], ['helmet', 3], ['stump', 6], ['snowpile', 4],
+    ['tree', 44], ['rock', 18], ['flake', 18], ['gate', 8], ['ramp', 7], ['helmet', 3], ['stump', 6]
   ];
   // крутые участки («чёрная трасса»): каждые 3000 ед. (300 м) — стенка; совпадает с рельефом 3D (PITCH_LEN в game3d.js)
   const PITCH = { len: 3000, from: 0.58, to: 0.78, boost: 0.6 };
@@ -49,13 +49,11 @@
     },
   };
   const GRABS = { ski: ['Мьют-грэб', 'Сэйфти-грэб', 'Тейл-грэб'], board: ['Инди-грэб', 'Мелон', 'Мэтод'] };
-  // йети
-  const YETI = { wake: 110, emerge: 0.45, chase: 9, follow: 48, minGap: 26 };
 
   let root, canvas, ctx, W = 0, H = 0, dpr = 1;
   let state = 'start', rider = 'ski', raf = 0, last = 0;
   let lastCrest = -1, mirror2d = false;
-  let cine = null;                       // идущая кат-сцена: { kind: 'crash' | 'yeti', t, dur, slow, zoom, … }
+  let cine = null;                       // идущая кат-сцена: { kind: 'crash', t, dur, slow, zoom, … }
   let P, objects, tracks, particles, texts, debris = [], cam, spawnY, score, bonus, best, shake, keys, overTimer, nextRoadY;
   // графика: '2d' — canvas, '3d' — Three.js (js/game3d.js грузится только при первом включении)
   let mode = '2d', R3D = null, loading3D = null, toastTimer = 0;
@@ -303,7 +301,7 @@
   function reset() {
     P = { x: 0, y: 0, z: 0, vz: 0, angle: 0, speed: 240, shield: false, inv: 0, crash: 0, spin: 0, air: false, trick: null,
           crouch: 0.3, plant: null, plantCD: 0,
-          rot: 0, flip: 0, grabT: 0, grabbing: false, manual: false, staleL: false, staleR: false, boost: 1, steepT: 0, carried: false,
+          rot: 0, flip: 0, grabT: 0, grabbing: false, manual: false, staleL: false, staleR: false, boost: 1, steepT: 0,
           stance: 1, stanceVis: 0, revertLatch: false, takeoffStance: 1, combo: null };
     objects = []; tracks = []; particles = []; texts = []; debris = [];
     lastCrest = -1;
@@ -348,8 +346,8 @@
   function cineEl(sel) { return root.querySelector(sel); }
   function startCine(kind, opts = {}) {
     cine = {
-      kind, t: 0, dur: kind === 'yeti' ? 5.6 : 3.8, slow: 0, zoom: 1, pan: 0,
-      focus: opts.focus || { x: P.x, y: P.y }, yeti: opts.yeti || null, stage: '',
+      kind, t: 0, dur: 3.8, slow: 0, zoom: 1, pan: 0,
+      focus: opts.focus || { x: P.x, y: P.y }, stage: '',
       word: opts.word || '', title: opts.title || '', hit: opts.hit || null,
     };
     root.classList.add('is-cine');
@@ -360,7 +358,7 @@
     cineEl('[data-cine-word]').textContent = cine.word;
     cineEl('[data-cine-title]').textContent = cine.title;
     const q = cine.title.includes('ёлк') ? QUIPS.tree : rider === 'board' ? QUIPS.board : QUIPS.crash;
-    cineEl('[data-cine-sub]').textContent = kind === 'yeti' ? '' : `${pick(q)} · ${Math.round(P.y / 10).toLocaleString('ru-RU')} м`;
+    cineEl('[data-cine-sub]').textContent = `${pick(q)} · ${Math.round(P.y / 10).toLocaleString('ru-RU')} м`;
     if (kind === 'crash') {                              // стоп-кадр со вспышкой и надписью
       el.classList.add('is-flash', 'is-boom');
       setTimeout(() => el.classList.remove('is-flash'), 60);
@@ -378,8 +376,6 @@
   }
   function endCine() {
     if (!cine) return;
-    const y = cine.yeti;
-    if (y && cine.kind === 'yeti') y.dead = true;        // йети скрылся с добычей
     cine = null;
     root.classList.remove('is-cine');
     const el = cineEl('[data-cine]');
@@ -397,31 +393,6 @@
       if (c.t > 0.5 && c.stage !== 'title') { c.stage = 'title'; cineEl('[data-cine]').classList.add('is-caption'); }
       c.focus.x += (P.x - c.focus.x) * Math.min(1, 2 * dt);
       c.focus.y += (P.y - c.focus.y) * Math.min(1, 2 * dt);
-    } else {
-      const y = c.yeti;
-      if (c.t < 0.55) {                                  // хватает: замедление, наезд
-        c.slow = 0.25; zoomT = 2.3;
-      } else if (c.t < 2.4) {                            // поднимает над головой и ревёт
-        c.slow = 1; zoomT = 2.0;
-        if (c.stage !== 'lift') {
-          c.stage = 'lift'; P.carried = true; y.phase = 'caught'; y.t = 0;
-          shake = 16;
-          cineCaption('Попался!', 'Йети не любит, когда его будят', 'РРРАААР!');
-        }
-        const k = Math.min(1, (c.t - 0.55) / 0.5);
-        P.z = 185 * (1 - (1 - k) * (1 - k));
-        if (Math.random() < 0.5) particles.push({ x: y.x + rand(-6, 6), y: y.y - 80, vx: rand(-40, 40), vy: rand(-90, -30), life: rand(0.4, 0.8), t: 0, r: rand(2, 4) });
-        if (c.t > 1.2 && c.t < 1.9) shake = Math.max(shake, 6);
-      } else {                                           // уносит в горы
-        c.slow = 1; zoomT = 1.55;
-        if (c.stage !== 'carry') {
-          c.stage = 'carry'; y.phase = 'carry'; y.t = 0; y.vy = 0;
-          cineCaption('Йети уносит добычу в пещеру…', `Спуск ${Math.round(P.y / 10).toLocaleString('ru-RU')} м · говорят, он просто хотел покататься`);
-        }
-      }
-      if (P.carried) { P.x = y.x; P.y = y.y + 1; P.z = Math.max(P.z, c.stage === 'carry' ? 185 : 0); cam.x += (P.x - cam.x) * Math.min(1, 3 * dt); }
-      c.focus.x += (y.x - c.focus.x) * Math.min(1, 3 * dt);
-      c.focus.y += (y.y - (c.stage === 'carry' ? 85 : 45) - c.focus.y) * Math.min(1, 3 * dt);
     }
     c.zoom += (zoomT - c.zoom) * Math.min(1, 2.6 * dt);
     c.pan += (1 - c.pan) * Math.min(1, 3 * dt);
@@ -603,7 +574,6 @@
       for (const [t, w] of TYPES) { if ((roll -= w) < 0) { type = t; break; } }
       if (type === 'helmet' && P.shield) type = 'flake';
     }
-    if (type === 'snowpile' && spawnY < 1500) type = 'tree';
     const gap = type === 'gate' ? rand(80, 120) : 0;
     // ищем свободное место: объекты не должны налезать на трамплин, ворота и друг на друга
     let x, y, tries = 0;
@@ -619,7 +589,6 @@
       case 'flake':  objects.push({ type, x, y, r: 18, rot: Math.random() * 6 }); break;
       case 'helmet': objects.push({ type, x, y, r: 20, bob: 0 }); break;
       case 'ramp':   objects.push({ type, x, y, r: 26, w: 60 }); break;
-      case 'snowpile': objects.push({ type, x, y, r: 20, burst: false, eye: Math.random() * 6 }); break;
       case 'gate': {
         objects.push({ type: 'pole', x: x - gap / 2, y, r: 5, color: '#d9352b' });
         objects.push({ type: 'pole', x: x + gap / 2, y, r: 5, color: '#2466d9' });
@@ -636,12 +605,12 @@
     if (type === 'gate') return [gap / 2 + 14, 16];
     return [r + 6, r + 6];
   }
-  const RADIUS = { tree: 11, rock: 17, stump: 9, flake: 18, helmet: 20, snowpile: 26 };
+  const RADIUS = { tree: 11, rock: 17, stump: 9, flake: 18, helmet: 20 };
 
   function isFree(x, y, type, gap) {
     const [ax, ay] = footprint(type, gap, RADIUS[type] || 12);
     for (const o of objects) {
-      if (o.dead || o.type === 'pole' || o.type === 'road' || o.type === 'sign' || o.type === 'yeti' || o.type === 'steepsign' || Math.abs(o.y - y) > 160) continue;
+      if (o.dead || o.type === 'pole' || o.type === 'road' || o.type === 'sign' || o.type === 'steepsign' || Math.abs(o.y - y) > 160) continue;
       const [bx, by] = footprint(o.type, o.gap, o.r);
       if (Math.abs(o.x - x) < ax + bx && Math.abs(o.y - y) < ay + by) return false;
     }
@@ -708,51 +677,6 @@
     }
     gameOver(reason);
     startCine('crash', { word: /приземл|сальто/i.test(reason) ? 'ШМЯК!' : 'БАМ!', title: reason });
-  }
-
-  // йети вылезает из кучи, когда проезжаешь рядом
-  function wakeYeti(o) {
-    o.burst = true;
-    puff(o.x, o.y, 40, 1.7);
-    shake = Math.max(shake, 7);
-    if (objects.some(y => y.type === 'yeti' && y.phase !== 'gone')) return;   // одновременно — один йети
-    objects.push({ type: 'yeti', x: o.x, y: o.y, r: 14, phase: 'emerge', t: 0, run: 0, vx: 0, vy: 0 });
-    addText('ЙЕТИ!', o.x, o.y - 70, '#6d28d9');
-  }
-
-  function updateYeti(o, dt) {
-    o.t += dt;
-    const playing = state === 'play' && !P.crash;
-    if (o.phase === 'emerge') { if (o.t > YETI.emerge) { o.phase = 'chase'; o.t = 0; } return; }
-    if (o.phase === 'chase') {
-      // держится вплотную позади и чуть сбоку, рычит и тянет лапы — но никогда не догоняет
-      o.side = o.side ?? (o.x < P.x ? -1 : 1);
-      const lunge = Math.max(0, Math.sin(o.t * 2.6)) ** 6;
-      const gap = YETI.follow - lunge * 16;                  // в рывке подбирается совсем близко
-      const tx = P.x + o.side * 14 - P.angle * 20, ty = P.y - gap;
-      // бежит вместе с игроком (без отставания) и подтягивается к точке за спиной
-      if (o.px !== undefined && o.t > 0.6) { o.x += P.x - o.px; o.y += P.y - o.py; }
-      o.px = P.x; o.py = P.y;
-      const k = Math.min(1, (o.t < 1 ? 2.5 : 5) * dt);
-      const nx = o.x + (tx - o.x) * k, ny = Math.min(o.y + (ty - o.y) * k, P.y - YETI.minGap);
-      o.vx = (nx - o.x) / Math.max(dt, 1e-3); o.vy = (ny - o.y) / Math.max(dt, 1e-3);
-      o.x = nx; o.y = ny;
-      o.run += dt * Math.max(8, Math.hypot(o.vx, o.vy) / 38);
-      o.lunge = lunge;
-      if (Math.random() < 0.35) particles.push({ x: o.x + rand(-8, 8), y: o.y + 2, vx: rand(-50, 50), vy: rand(-60, 0), life: rand(0.25, 0.5), t: 0, r: rand(1.5, 3) });
-      if (!playing) { o.phase = 'giveup'; o.t = 0; return; }
-      if (o.t > YETI.chase) {
-        o.phase = 'giveup'; o.t = 0;
-        bonus += 250; addText('Ушёл от йети +250', P.x, P.y - 60, '#6d28d9');
-      }
-      return;
-    }
-    if (o.phase === 'giveup') {
-      const k = Math.exp(-2.2 * dt);
-      o.vx *= k; o.vy *= k;
-      o.x += o.vx * dt; o.y += o.vy * dt;
-      o.run += dt * Math.hypot(o.vx, o.vy) / 38;
-    }
   }
 
   function launch(o, big, ollie) {
@@ -909,12 +833,7 @@
           if (state !== 'play') break;
           continue;
         }
-        if (o.type === 'sign' || o.type === 'steepsign' || o.type === 'yeti') continue;
-        if (o.type === 'snowpile') {
-          if (!o.burst && Math.abs(dx) < YETI.wake && Math.abs(dy) < 45) wakeYeti(o);
-          if (!o.hit && P.z < 12 && dx * dx + dy * dy < 22 * 22) { o.hit = true; puff(o.x, o.y, 18, 1.1); addText('Бум!', o.x, o.y - 30, '#2466d9'); }
-          continue;
-        }
+        if (o.type === 'sign' || o.type === 'steepsign') continue;
         if (o.type === 'gate') {
           if (!o.done && P.y >= o.y) {
             o.done = true;
@@ -946,7 +865,6 @@
     }
 
     if (state !== 'play' || P.crash) for (const o of objects) if (o.type === 'road') updateRoad(o, dt);
-    for (const o of objects) if (o.type === 'yeti') updateYeti(o, dt);
     warn();
 
     // камера плавно следует за райдером
@@ -954,7 +872,7 @@
 
     // генерация и уборка трассы
     while (spawnY < P.y + ahead()) spawnRow();
-    objects = objects.filter(o => !o.dead && (o.y > P.y - Math.max(H * 0.6, 500) || (o.type === 'yeti' && o.phase === 'chase')));
+    objects = objects.filter(o => !o.dead && o.y > P.y - Math.max(H * 0.6, 500));
 
     for (const p of particles) {
       p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 260 * dt;
@@ -990,8 +908,7 @@
       }
     }
     if (!text && state === 'play' && !P.crash) {
-      if (objects.some(o => o.type === 'yeti' && o.phase === 'chase')) text = '👣 За тобой гонится йети! Не оглядывайся';
-      else if (steepness(P.y) > 0.05) text = '◆ Крутяк! Скорость растёт';
+      if (steepness(P.y) > 0.05) text = '◆ Крутяк! Скорость растёт';
       else {
         const f = pitchF(P.y);
         if (f > PITCH.from - 0.12 && f < PITCH.from) text = '◆ Впереди чёрная трасса — крутой склон';
@@ -1283,7 +1200,6 @@
     for (const o of objects) if (o.type === 'road') drawRoad(o);
     drawSteep();
     drawTracks();
-    drawYetiPrints();
 
     const list = objects.filter(o => o.type !== 'road').map(o => ({ y: o.y, o }));
     list.push({ y: P.y, player: true });
@@ -1379,63 +1295,6 @@
     ctx.fillText('КРУТО', sx, sy - 28);
   }
 
-  // снежная куча: пухлый сугроб; в целой куче иногда моргают глаза
-  function drawSnowpile(sx, sy, o) {
-    shadow(sx + 7, sy + 2, 30, 7, 0.22);
-    if (o.burst) {
-      ctx.fillStyle = '#eef3fa';
-      ctx.beginPath(); ctx.ellipse(sx, sy - 2, 26, 7, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      for (const [dx, dy, r] of [[-18, -6, 6], [14, -5, 7], [-4, -9, 5], [22, 2, 4], [-24, 2, 4]]) {
-        ctx.beginPath(); ctx.ellipse(sx + dx, sy + dy, r, r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.fillStyle = 'rgba(40,50,70,.35)';
-      ctx.beginPath(); ctx.ellipse(sx, sy - 3, 11, 4, 0, 0, Math.PI * 2); ctx.fill();    // яма, откуда вылез
-      return;
-    }
-    const g = ctx.createRadialGradient(sx - 10, sy - 26, 2, sx + 4, sy - 10, 38);
-    g.addColorStop(0, '#ffffff'); g.addColorStop(0.55, '#eef4fc'); g.addColorStop(1, '#bccbe2');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.moveTo(sx - 32, sy);
-    ctx.bezierCurveTo(sx - 32, sy - 20, sx - 18, sy - 34, sx - 4, sy - 33);
-    ctx.bezierCurveTo(sx + 6, sy - 40, sx + 24, sy - 30, sx + 26, sy - 18);
-    ctx.bezierCurveTo(sx + 34, sy - 14, sx + 34, sy - 2, sx + 30, sy);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.9)';
-    ctx.beginPath(); ctx.ellipse(sx - 10, sy - 27, 8, 3, -0.3, 0, Math.PI * 2); ctx.fill();
-    // ветки торчат
-    ctx.strokeStyle = '#5b3a24'; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(sx + 14, sy - 26); ctx.lineTo(sx + 22, sy - 38); ctx.moveTo(sx + 19, sy - 33); ctx.lineTo(sx + 25, sy - 34); ctx.stroke();
-    // глаза: когда райдер близко — моргают в тёмной щели
-    const near = Math.abs(o.y - P.y) < 320 && Math.abs(o.x - P.x) < 260;
-    const blink = Math.sin(clock * 2.3 + o.eye) > -0.85;
-    if (near && blink) {
-      ctx.fillStyle = 'rgba(20,28,45,.75)';
-      ctx.beginPath(); ctx.ellipse(sx - 2, sy - 14, 10, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-      for (const ex of [-6, 2]) {
-        const gl = ctx.createRadialGradient(sx + ex, sy - 14, 0, sx + ex, sy - 14, 5);
-        gl.addColorStop(0, 'rgba(255,230,90,1)'); gl.addColorStop(1, 'rgba(255,120,40,0)');
-        ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(sx + ex, sy - 14, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#1a0a00'; ctx.fillRect(sx + ex - 0.6, sy - 15.5, 1.2, 3);
-      }
-    }
-  }
-
-  // следы огромных лап, когда йети уносит добычу
-  function drawYetiPrints() {
-    for (const o of objects) {
-      if (o.type !== 'yeti' || !o.prints) continue;
-      for (const pr of o.prints) {
-        const [sx, sy] = toScreen(pr.x, pr.y);
-        ctx.fillStyle = 'rgba(110,135,180,.35)';
-        ctx.beginPath(); ctx.ellipse(sx, sy, 5, 8, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = 'rgba(110,135,180,.28)';
-        for (const t of [-3.5, 0, 3.5]) { ctx.beginPath(); ctx.arc(sx + t, sy - 9, 1.6, 0, Math.PI * 2); ctx.fill(); }
-      }
-    }
-  }
-
   // после падения: звёздочки и птички кружат над головой
   function drawDizzy() {
     const [sx, sy] = toScreen(P.x, P.y);
@@ -1462,107 +1321,6 @@
       }
       ctx.restore();
     }
-  }
-
-  // лохматый контур: неровные пряди меха по эллипсу
-  function furBlob(cx, cy, rx, ry, seed, tuft = 3.5) {
-    ctx.beginPath();
-    const n = 36;
-    for (let i = 0; i <= n; i++) {
-      const a = (i / n) * Math.PI * 2;
-      const k = 1 + (i % 2 ? tuft / Math.max(rx, ry) : -0.02) + Math.sin(i * 2.7 + seed) * 0.04;
-      const x = cx + Math.cos(a) * rx * k, y = cy + Math.sin(a) * ry * k;
-      if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-  }
-  function furFill(cx, cy, r) {
-    const g = ctx.createRadialGradient(cx - r * 0.4, cy - r * 0.5, r * 0.1, cx, cy, r * 1.3);
-    g.addColorStop(0, '#ffffff'); g.addColorStop(0.55, '#e8eef6'); g.addColorStop(1, '#a9bcd4');
-    return g;
-  }
-
-  // йети: огромный, лохматый, бежит на зрителя (вниз по склону)
-  function drawYeti(sx, sy, o) {
-    const ph = o.run;
-    const back = o.phase === 'carry';                              // убегает вверх по склону — видно спину
-    const caught = o.phase === 'caught' || back, tired = o.phase === 'giveup' && Math.hypot(o.vx, o.vy) < 60;
-    const lunge = o.phase === 'chase' ? o.lunge || 0 : 0;
-    let rise = 0;
-    if (o.phase === 'emerge') rise = (1 - Math.min(1, o.t / YETI.emerge)) * 78;
-    shadow(sx + 8, sy + 3, 26, 7, 0.3 * (1 - rise / 90));
-    ctx.save();
-    if (rise) { ctx.beginPath(); ctx.rect(sx - 80, sy - 200, 160, 202); ctx.clip(); }   // «из-под снега»
-    ctx.translate(sx, sy + rise + (o.phase === 'chase' || o.phase === 'carry' ? -Math.abs(Math.sin(ph)) * 3 : 0));
-    ctx.scale(1.25, 1.25);
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-
-    // ноги
-    const moving = o.phase === 'chase' || o.phase === 'carry' || o.phase === 'giveup';
-    const lL = moving ? Math.max(0, Math.sin(ph)) * 9 : 0, lR = moving ? Math.max(0, -Math.sin(ph)) * 9 : 0;
-    for (const [x, lift] of [[-9, lL], [9, lR]]) {
-      ctx.strokeStyle = '#c9d6e6'; ctx.lineWidth = 12;
-      ctx.beginPath(); ctx.moveTo(x * 0.8, -20); ctx.lineTo(x, -4 - lift); ctx.stroke();
-      ctx.strokeStyle = '#f4f7fb'; ctx.lineWidth = 9;
-      ctx.beginPath(); ctx.moveTo(x * 0.8 - 1, -20); ctx.lineTo(x - 1, -4 - lift); ctx.stroke();
-      ctx.fillStyle = '#8193ab';
-      ctx.beginPath(); ctx.ellipse(x, -1 - lift, 7.5, 4, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#2b3240';
-      for (const t of [-4, 0, 4]) { ctx.beginPath(); ctx.arc(x + t, 2 - lift, 1.1, 0, Math.PI * 2); ctx.fill(); }
-    }
-    // руки: машут на бегу, в рывке тянутся вперёд, когда поймал — над головой
-    const armUp = caught ? 1.4 : tired ? -0.2 : 0.55 + lunge * 0.8;
-    const sw = caught || tired ? 0 : Math.sin(ph) * 0.7;
-    for (const side of [-1, 1]) {
-      const a = armUp + side * sw;
-      const hx = side * (20 + Math.cos(a) * 6), hy = -48 - Math.sin(a) * 20 + (tired ? 18 : 0);
-      ctx.strokeStyle = '#c3d0e2'; ctx.lineWidth = 11;
-      ctx.beginPath(); ctx.moveTo(side * 15, -50); ctx.quadraticCurveTo(side * 26, -42, hx, hy); ctx.stroke();
-      ctx.strokeStyle = '#f4f7fb'; ctx.lineWidth = 8;
-      ctx.beginPath(); ctx.moveTo(side * 15 - side, -51); ctx.quadraticCurveTo(side * 25, -43, hx - side, hy - 1); ctx.stroke();
-      ctx.fillStyle = '#8193ab'; ctx.beginPath(); ctx.arc(hx, hy, 4.5, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#1f2430'; ctx.lineWidth = 1.2;
-      for (const c of [-0.5, 0, 0.5]) { ctx.beginPath(); ctx.moveTo(hx + c * 5, hy - 3); ctx.lineTo(hx + c * 7, hy - 8); ctx.stroke(); }
-    }
-    // туловище
-    furBlob(0, -38, 19, 23, 1.3);
-    ctx.fillStyle = furFill(0, -38, 22); ctx.fill();
-    ctx.strokeStyle = 'rgba(120,145,180,.5)'; ctx.lineWidth = 0.8;
-    for (let i = 0; i < 14; i++) {                               // пряди меха
-      const x = -13 + (i % 7) * 4.3, y = -50 + Math.floor(i / 7) * 16 + (i % 2) * 4;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 1.5, y + 4, x - 0.5, y + 8); ctx.stroke();
-    }
-    ctx.fillStyle = 'rgba(206,218,234,.55)';
-    ctx.beginPath(); ctx.ellipse(0, -32, 10, 12, 0, 0, Math.PI * 2); ctx.fill();    // живот
-    // голова
-    furBlob(0, -65, 13, 12, 4.1, 3);
-    ctx.fillStyle = furFill(0, -65, 13); ctx.fill();
-    if (back) {
-      // затылок и спина: только мех и тень
-      ctx.fillStyle = 'rgba(150,170,200,.45)';
-      ctx.beginPath(); ctx.ellipse(0, -60, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
-      return;
-    }
-    const face = ctx.createLinearGradient(0, -71, 0, -54);
-    face.addColorStop(0, '#9fb3cb'); face.addColorStop(1, '#6f86a3');
-    ctx.fillStyle = face;
-    ctx.beginPath(); ctx.ellipse(0, -62, 8.5, 8.5, 0, 0, Math.PI * 2); ctx.fill();
-    // брови и злые глаза
-    ctx.strokeStyle = '#2b3445'; ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.moveTo(-6.5, -68.5); ctx.lineTo(-1.5, -66.5); ctx.moveTo(6.5, -68.5); ctx.lineTo(1.5, -66.5); ctx.stroke();
-    for (const ex of [-3.6, 3.6]) {
-      ctx.fillStyle = '#fff8d6'; ctx.beginPath(); ctx.ellipse(ex, -64.5, 2.2, 1.7, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#c1121f'; ctx.beginPath(); ctx.arc(ex + (P.x - o.x > 0 ? 0.5 : -0.5), -64.4, 1, 0, Math.PI * 2); ctx.fill();
-    }
-    // пасть с клыками — шире в рывке и когда рычит
-    const open = caught ? 5 : 2.6 + lunge * 2.5 + Math.max(0, Math.sin(clock * 6)) * 0.6;
-    ctx.fillStyle = '#5b0f1a';
-    ctx.beginPath(); ctx.ellipse(0, -57.5, 5.2, open, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#fff';
-    for (const fx of [-3, 3]) { ctx.beginPath(); ctx.moveTo(fx - 1.1, -57.5 - open + 0.6); ctx.lineTo(fx + 1.1, -57.5 - open + 0.6); ctx.lineTo(fx, -57.5 - open + 3.2); ctx.closePath(); ctx.fill(); }
-    for (const fx of [-2.2, 2.2]) { ctx.beginPath(); ctx.moveTo(fx - 0.9, -57.5 + open - 0.5); ctx.lineTo(fx + 0.9, -57.5 + open - 0.5); ctx.lineTo(fx, -57.5 + open - 2.6); ctx.closePath(); ctx.fill(); }
-    ctx.restore();
   }
 
   // следы: вдавленная борозда + светлый край.
@@ -1651,8 +1409,6 @@
       }
       case 'sign': drawSign(sx, sy, o); break;
       case 'pole': drawGatePole(sx, sy, o); break;
-      case 'snowpile': drawSnowpile(sx, sy, o); break;
-      case 'yeti': drawYeti(sx, sy, o); break;
       case 'steepsign': drawSteepSign(sx, sy); break;
       case 'flake': drawFlakePickup(sx, sy, o); break;
       case 'helmet': drawHelmetPickup(sx, sy, o); break;
@@ -2042,11 +1798,7 @@
     ctx.save();
     ctx.translate(sx, sy);
     const pose = { crouch: P.crouch, plant: P.plant, grab: (P.air && P.trick && !P.manual && P.z > 40) || P.grabbing, noGear: false };
-    if (P.carried) {
-      ctx.rotate(Math.sin(clock * 9) * 0.3);                       // болтается и дрыгает ногами
-      pose.noGear = rider === 'ski';
-      pose.crouch = 0.15 + Math.abs(Math.sin(clock * 11)) * 0.45;
-    } else if (P.crash) {
+    if (P.crash) {
       const k = Math.min(P.crash / 0.7, 1);
       ctx.rotate(k * Math.PI * 1.5);                            // кувырок и падение на бок
       ctx.translate(0, k * 6);
