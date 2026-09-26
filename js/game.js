@@ -260,6 +260,7 @@
   function setRider(r) {
     rider = r;
     root.querySelectorAll('[data-rider]').forEach(b => b.setAttribute('aria-checked', String(b.dataset.rider === r)));
+    root.querySelector('[data-touch="grab"]').hidden = r === 'ski';   // у лыжника кнопки грэба нет
   }
 
   function showScreen(name) {
